@@ -152,6 +152,7 @@ async function renderSolicitudes(container) {
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Código</th> <!-- Added Column -->
                             <th>Producto</th>
                             <th>Zona</th>
                             <th>Cantidad</th>
@@ -160,7 +161,7 @@ async function renderSolicitudes(container) {
                         </tr>
                     </thead>
                     <tbody id="solicitudes-body">
-                        <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">
+                        <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">
                             <i class="fas fa-spinner fa-spin"></i> Cargando datos...
                         </td></tr>
                     </tbody>
@@ -219,6 +220,9 @@ async function renderSolicitudes(container) {
 
         const tbody = document.getElementById('solicitudes-body');
         if (result.success && result.data.length > 0) {
+            // GLOBALLY STORE DATA FOR VIEWING
+            window.currentSolicitudes = result.data;
+
             tbody.innerHTML = '';
             result.data.forEach(item => {
                 const badgeClass = item.estado === 'Pendiente' ? 'badge-pending' : 'badge-completed';
@@ -227,32 +231,40 @@ async function renderSolicitudes(container) {
                 tbody.innerHTML += `
                     <tr>
                         <td style="border-left-color:${borderColor}">${item.id}</td>
+                        <td style="font-family:var(--font-mono); color:var(--text-muted);">${item.codigo || '-'}</td> <!-- CODE -->
                         <td style="font-weight:600">${item.producto}</td>
                         <td>${item.zona}</td>
                         <td>${item.cantidad}</td>
                         <td><span class="badge ${badgeClass}">${item.estado}</span></td>
-                        <td><button class="btn-neon" style="padding:4px 8px; font-size:0.7rem;">Ver</button></td>
+                        <td><button class="btn-neon" onclick="showSolDetail('${item.id}')" style="padding:4px 8px; font-size:0.7rem;">Ver</button></td>
                     </tr>
                 `;
             });
         } else {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">${result.error || 'No hay solicitudes registradas.'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;">${result.error || 'No hay solicitudes registradas.'}</td></tr>`;
         }
     } catch (error) {
-        document.getElementById('solicitudes-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger)">Error: ${error.message}</td></tr>`;
+        document.getElementById('solicitudes-body').innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger)">Error: ${error.message}</td></tr>`;
+    }
+}
+
+window.showSolDetail = function (id) {
+    const item = window.currentSolicitudes.find(i => i.id === id);
+    if (item) {
+        alert(`DETALLES SOLICITUD\n\nID: ${item.id} \nProducto: ${item.producto} \nZona: ${item.zona} \nCantidad Calc: ${item.cantidad} \n\nNOTAS DEL SISTEMA: \n${item.notas} \n\nFecha: ${item.fecha} `);
     }
 }
 
 function renderPlaceholder(container) {
-    container.innerHTML = `<div class="card" style="text-align:center; padding:50px; color:var(--text-muted);">
+    container.innerHTML = `< div class="card" style = "text-align:center; padding:50px; color:var(--text-muted);" >
         <i class="fas fa-tools" style="font-size:3rem; margin-bottom:20px; color:var(--border);"></i>
         <h3>Módulo en Desarrollo</h3>
-    </div>`;
+    </div > `;
 }
 
 function renderSettings(container) {
     container.innerHTML = `
-        <div class="card">
+                    < div class="card" >
             <div class="card-header">
                 <h3>Configuración</h3>
             </div>
@@ -262,8 +274,8 @@ function renderSettings(container) {
                        style="width:100%; padding:10px; background:var(--primary); border:1px solid var(--border); color:var(--text-muted); border-radius:6px; cursor:not-allowed">
                 <p style="font-size:0.8rem; margin-top:5px; color:var(--neon-green)">Conectado</p>
             </div>
-        </div>
-    `;
+        </div >
+                    `;
 }
 
 // LOGIC IMPORT
@@ -368,7 +380,7 @@ window.processImport = async function () {
             });
 
             if (idxCode === -1 || idxQty === -1 || idxTotal === -1) {
-                throw new Error(`Faltan columnas clave. Detectadas: Código(${idxCode !== -1}), Cantidad(${idxQty !== -1}), Total(${idxTotal !== -1}).`);
+                throw new Error(`Faltan columnas clave.Detectadas: Código(${idxCode !== -1}), Cantidad(${idxQty !== -1}), Total(${idxTotal !== -1}).`);
             }
 
             const items = [];
@@ -406,7 +418,7 @@ window.processImport = async function () {
 
             if (items.length === 0) throw new Error("No se encontraron productos válidos en el archivo.");
 
-            const confirmMsg = `Se detectaron ${items.length} productos.\n\n¿Enviar al servidor?`;
+            const confirmMsg = `Se detectaron ${items.length} productos.\n\n¿Enviar al servidor ? `;
 
             if (confirm(confirmMsg)) {
                 btn.innerText = "Calculando Factores...";

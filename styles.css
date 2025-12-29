@@ -45,29 +45,66 @@ body {
 }
 
 /* APP SHELL: CSS GRID LAYOUT (Fixes piling) */
+/* APP SHELL: ROBUST LAYOUT */
 #app-container {
     display: grid;
-    grid-template-areas:
-        "sidebar header"
-        "sidebar content";
     grid-template-columns: 260px 1fr;
-    grid-template-rows: 70px 1fr;
-    height: 100vh;
+    grid-template-rows: 100vh;
     width: 100vw;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* SIDEBAR */
 .sidebar {
-    grid-area: sidebar;
+    grid-column: 1;
+    grid-row: 1;
     background: var(--bg-panel);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     padding: 30px 20px;
-    /* More top padding */
     position: relative;
     box-shadow: 5px 0 20px rgba(0, 0, 0, 0.5);
     z-index: 100;
+}
+
+/* MAIN CONTENT WRAPPER (Right Side) */
+.main-content {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* TOP BAR */
+.top-bar {
+    flex-shrink: 0;
+    height: 70px;
+    background: var(--bg-panel-transparent);
+    backdrop-filter: blur(5px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 90;
+    width: 100%;
+}
+
+/* CONTENT AREA */
+.content-wrapper {
+    flex-grow: 1;
+    padding: 30px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+    max-width: 100%;
 }
 
 .brand {
@@ -171,39 +208,13 @@ body {
     /* Hex shape */
 }
 
-/* TOP BAR */
-.top-bar {
-    grid-area: header;
-    background: var(--bg-panel-transparent);
-    backdrop-filter: blur(5px);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 30px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    z-index: 90;
-}
-
+/* TOP BAR H1 */
 .top-bar h1 {
     font-family: var(--font-mono);
     text-transform: uppercase;
     font-size: 1.5rem;
     letter-spacing: 2px;
     color: #fff;
-}
-
-/* CONTENT AREA */
-/* CONTENT AREA */
-.content-wrapper {
-    grid-area: content;
-    padding: 30px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    position: relative;
-    width: 100%;
-    /* Force full width */
-    max-width: 100%;
 }
 
 @keyframes slideUpFade {

@@ -1,357 +1,409 @@
-// CONFIG & CONSTANTS
-const CREDENTIALS = { user: 'levo', pass: "666" };
-const API_URL = 'https://script.google.com/macros/s/AKfycbw1qKTFZ7KH55Q1FxdXb1s29UqRZnw7tQs03K8yo529ZN9WA0uRZVK8yioSBP5lik8How/exec';
+:root {
+    --bg-dark: #050510;
+    --bg-panel: #0a0a1f;
+    --bg-panel-transparent: rgba(10, 10, 31, 0.85);
 
-// STATE
-let currentUser = null;
+    --primary-neon: #00f3ff;
+    /* Cyan */
+    --secondary-neon: #bc13fe;
+    /* Purple/Magenta */
+    --success-neon: #00ff41;
+    /* Hacker Green */
+    --warning-neon: #ffbd00;
+    --danger-neon: #ff003c;
 
-// INIT
-document.addEventListener('DOMContentLoaded', () => {
-    checkSession();
-    setupNav();
-    setupLogin();
-});
+    --text-main: #e0faff;
+    --text-muted: #6b8bd2;
 
-function checkSession() {
-    const u = localStorage.getItem('levo_user');
-    if (u === CREDENTIALS.user) {
-        currentUser = u;
-        showApp();
-    } else {
-        showLogin();
-    }
+    --border-color: #1d2d50;
+    --glass-border: rgba(0, 243, 255, 0.2);
+
+    --font-ui: 'Rajdhani', sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
 }
 
-function setupLogin() {
-    document.getElementById('login-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (document.getElementById('username').value === CREDENTIALS.user &&
-            document.getElementById('password').value === CREDENTIALS.pass) {
-            localStorage.setItem('levo_user', CREDENTIALS.user);
-            checkSession();
-        } else {
-            const err = document.getElementById('login-error');
-            err.innerText = "Credenciales incorrectas";
-            setTimeout(() => err.innerText = '', 2000);
-        }
-    });
-
-    document.getElementById('btn-logout').addEventListener('click', () => {
-        localStorage.removeItem('levo_user');
-        location.reload();
-    });
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-neon) var(--bg-dark);
 }
 
-function showApp() {
-    document.getElementById('login-container').style.display = 'none';
-    document.getElementById('app-container').style.display = 'flex';
-    loadModule('dashboard');
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: var(--font-ui);
+    height: 100vh;
+    overflow: hidden;
+    /* Cyberpunk Grid Background */
+    background-image:
+        linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center top;
 }
 
-function showLogin() {
-    document.getElementById('login-container').style.display = 'flex';
-    document.getElementById('app-container').style.display = 'none';
+/* APP SHELL: CSS GRID LAYOUT (Fixes piling) */
+#app-container {
+    display: grid;
+    grid-template-areas:
+        "sidebar header"
+        "sidebar content";
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 70px 1fr;
+    height: 100vh;
+    width: 100vw;
 }
 
-// NAVIGATION SYSTEM
-const MODULES = {
-    dashboard: renderDashboard,
-    'prod-solicitudes': renderSolicitudes,
-    'prod-envasados': renderPlaceholder,
-    'prod-ajustes': renderPlaceholder,
-    'prod-auditorias': renderPlaceholder,
-    'mov-guias': renderPlaceholder,
-    'mov-preingresos': renderPlaceholder,
-    'usuarios': renderPlaceholder,
-    'compras': renderPlaceholder,
-    'settings': renderSettings
-};
-
-function setupNav() {
-    // Top Level toggles
-    document.querySelectorAll('.nav-group-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const group = header.parentElement;
-            group.classList.toggle('open');
-            const icon = header.querySelector('.fa-chevron-right');
-            if (icon) icon.style.transform = group.classList.contains('open') ? 'rotate(90deg)' : 'rotate(0deg)';
-        });
-    });
-
-    // Links
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            link.classList.add('active');
-
-            const mod = link.dataset.module;
-            loadModule(mod);
-        });
-    });
+/* SIDEBAR */
+.sidebar {
+    grid-area: sidebar;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 30px 20px;
+    /* More top padding */
+    position: relative;
+    box-shadow: 5px 0 20px rgba(0, 0, 0, 0.5);
+    z-index: 100;
 }
 
-function loadModule(moduleName) {
-    const container = document.getElementById('module-content');
-    const title = document.getElementById('page-title');
-
-    // Set Title
-    if (moduleName.includes('-')) {
-        const parts = moduleName.split('-');
-        title.innerText = parts[0].toUpperCase() + ': ' + parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
-    } else {
-        title.innerText = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
-    }
-
-    if (MODULES[moduleName]) {
-        MODULES[moduleName](container);
-    } else {
-        container.innerHTML = `<div class="card" style="text-align:center; padding:50px; color:var(--text-muted);">
-            <i class="fas fa-tools" style="font-size:3rem; margin-bottom:20px; color:var(--border);"></i>
-            <h3>Módulo en Desarrollo</h3>
-        </div>`;
-    }
+.brand {
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    /* Larger Brand */
+    color: var(--primary-neon);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 40px;
+    /* More space below brand */
+    text-shadow: 0 0 10px var(--primary-neon);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
 }
 
-// RENDERERS
-function renderDashboard(container) {
-    container.innerHTML = `
-        <div class="dashboard-grid">
-            <div class="stat-card">
-                <div class="stat-label">Solicitudes Pendientes</div>
-                <div class="stat-val" style="color:var(--neon-orange)">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Stock Crítico</div>
-                <div class="stat-val" style="color:var(--danger)">5</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Ventas Hoy</div>
-                <div class="stat-val" style="color:var(--neon-green)">S/ 0.00</div>
-            </div>
-        </div>
-        
-         <div class="card">
-            <div class="card-header">
-                <h3>Bienvenido a LevoWeb 2.0</h3>
-            </div>
-            <p style="padding:20px; color:var(--text-muted)">Seleccione una opción del menú lateral para comenzar.</p>
-        </div>
-    `;
+.nav-menu {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    /* Space between items */
 }
 
-async function renderSolicitudes(container) {
-    container.innerHTML = `
-        <div class="card">
-            <div class="card-header">
-                <h3><i class="fas fa-file-invoice" style="color:var(--neon-orange)"></i> Gestión de Solicitudes</h3>
-                <button class="btn-neon" onclick="openImportModal()"><i class="fas fa-file-import"></i> Importar Ventas</button>
-            </div>
-            <div style="overflow-x:auto">
-                <table id="solTable">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Producto</th>
-                            <th>Zona</th>
-                            <th>Cantidad</th>
-                            <th>Estado</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="solicitudes-body">
-                        <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">
-                            <i class="fas fa-spinner fa-spin"></i> Cargando datos...
-                        </td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- IMPORT MODAL -->
-        <div id="import-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;">
-             <div class="card" style="width:600px; background:var(--primary-light);">
-                <div class="card-header">
-                    <h3>Importar Reporte de Ventas</h3>
-                    <button onclick="closeImportModal()" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">&times;</button>
-                </div>
-                
-                <div style="padding:20px;">
-                    <div style="margin-bottom:15px;">
-                        <label style="color:var(--text-muted); font-size:0.8rem;">Seleccione Zona (para asignar a estos pedidos)</label>
-                        <select id="import-zone" style="width:100%; padding:10px; background:var(--primary); color:white; border:1px solid var(--border); border-radius:6px; margin-top:5px;">
-                            <option value="Zona 1">Zona 1</option>
-                            <option value="Zona 2">Zona 2</option>
-                            <option value="General">General</option>
-                        </select>
-                    </div>
-
-                    <div class="upload-area" style="border:2px dashed var(--border); padding:20px; text-align:center; margin-bottom:20px; border-radius:8px;">
-                        <p style="color:var(--text-muted); margin-bottom:10px;">Copie desde Excel (Ctrl+C) y Pegue aquí (Ctrl+V)</p>
-                        <textarea id="paste-area" placeholder="Pegue las filas aquí..." style="width:100%; height:150px; background:var(--primary); color:white; border:none; padding:10px; font-family:monospace; font-size:0.8rem; border-radius:6px;"></textarea>
-                    </div>
-                    
-                    <div style="display:flex; justify-content:flex-end;">
-                        <button class="btn-neon" onclick="processImport()">Procesar e Importar</button>
-                    </div>
-                </div>
-             </div>
-        </div>
-    `;
-
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'getSolicitudes' })
-        });
-        const result = await response.json();
-
-        const tbody = document.getElementById('solicitudes-body');
-        if (result.success && result.data.length > 0) {
-            tbody.innerHTML = '';
-            result.data.forEach(item => {
-                const badgeClass = item.estado === 'Pendiente' ? 'badge-pending' : 'badge-completed';
-                const borderColor = item.estado === 'Pendiente' ? 'var(--neon-orange)' : 'var(--neon-green)';
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td style="border-left-color:${borderColor}">${item.id}</td>
-                        <td style="font-weight:600">${item.producto}</td>
-                        <td>${item.zona}</td>
-                        <td>${item.cantidad}</td>
-                        <td><span class="badge ${badgeClass}">${item.estado}</span></td>
-                        <td><button class="btn-neon" style="padding:4px 8px; font-size:0.7rem;">Ver</button></td>
-                    </tr>
-                `;
-            });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">No hay solicitudes registradas.</td></tr>`;
-        }
-    } catch (error) {
-        document.getElementById('solicitudes-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger)">Error al cargar: ${error.message}</td></tr>`;
-    }
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 15px 15px;
+    /* Beefier buttons */
+    margin-bottom: 5px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    border-left: 3px solid transparent;
+    transition: all 0.3s ease;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    /* Preparación para hover tech */
 }
 
-function renderPlaceholder(container) {
-    container.innerHTML = `<div class="card" style="text-align:center; padding:50px; color:var(--text-muted);">
-        <i class="fas fa-tools" style="font-size:3rem; margin-bottom:20px; color:var(--border);"></i>
-        <h3>Módulo en Desarrollo</h3>
-    </div>`;
+.nav-item:hover,
+.nav-item.active {
+    background: linear-gradient(90deg, rgba(0, 243, 255, 0.1), transparent);
+    color: var(--primary-neon);
+    border-left-color: var(--primary-neon);
+    text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+    padding-left: 20px;
+    /* Slight movement */
 }
 
-function renderSettings(container) {
-    container.innerHTML = `
-        <div class="card">
-            <div class="card-header">
-                <h3>Configuración</h3>
-            </div>
-            <div style="padding:20px;">
-                <label style="display:block; margin-bottom:5px; color:var(--text-muted)">Google Apps Script API URL</label>
-                <input type="text" id="api-url-input" value="${API_URL}" readonly 
-                       style="width:100%; padding:10px; background:var(--primary); border:1px solid var(--border); color:var(--text-muted); border-radius:6px; cursor:not-allowed">
-                <p style="font-size:0.8rem; margin-top:5px; color:var(--neon-green)">Conectado</p>
-            </div>
-        </div>
-    `;
+/* Submodules */
+.nav-group-header {
+    padding: 12px 15px;
+    color: var(--text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: 0.3s;
 }
 
-// LOGIC IMPORT
-window.openImportModal = function () { document.getElementById('import-modal').style.display = 'flex'; }
-window.closeImportModal = function () { document.getElementById('import-modal').style.display = 'none'; }
+.nav-group-header:hover {
+    color: var(--text-main);
+}
 
-window.processImport = async function () {
-    const raw = document.getElementById('paste-area').value;
-    const zone = document.getElementById('import-zone').value;
-    const btn = document.querySelector('#import-modal .btn-neon'); // The button clicked
+.nav-group-content {
+    display: none;
+    padding-left: 15px;
+    background: rgba(0, 0, 0, 0.2);
+}
 
-    if (!raw.trim()) return alert("No hay datos pegados");
+.nav-group.open .nav-group-content {
+    display: block;
+    border-left: 1px solid var(--border-color);
+}
 
-    // PARSE LOGIC (Tab Separate Values)
-    const lines = raw.trim().split('\n');
-    const items = [];
 
-    lines.forEach(line => {
-        const cols = line.split('\t');
-        if (cols.length < 2) return;
+.user-profile {
+    display: flex;
+    align-items: center;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    gap: 10px;
+}
 
-        // Strategy: 
-        // 1. Find Longest String -> Product Name
-        // 2. Find Numeric value (last numeric column usually) -> Quantity
+.avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--primary-neon);
+    color: #000;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%);
+    /* Hex shape */
+}
 
-        let product = cols[0];
-        let qty = 1;
+/* TOP BAR */
+.top-bar {
+    grid-area: header;
+    background: var(--bg-panel-transparent);
+    backdrop-filter: blur(5px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 90;
+}
 
-        let maxLen = 0;
-        let pIndex = -1;
-        cols.forEach((c, i) => {
-            if (c.length > maxLen && isNaN(c.replace(',', '.'))) { // Ensure it's text
-                maxLen = c.length;
-                pIndex = i;
-            }
-        });
+.top-bar h1 {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+    color: #fff;
+}
 
-        if (pIndex !== -1) product = cols[pIndex];
+/* CONTENT AREA */
+.content-wrapper {
+    grid-area: content;
+    padding: 30px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    /* Scanline effect overlay */
+    background: repeating-linear-gradient(0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 243, 255, 0.02) 2px,
+            rgba(0, 243, 255, 0.02) 4px);
+}
 
-        // Find Qty: Look for numbers backwards, skipping likely price columns if needed
-        // For now, simple logic: Last Valid Number
-        let qIndex = -1;
-        for (let i = cols.length - 1; i >= 0; i--) {
-            // Remove common currency symbols just in case
-            let clean = cols[i].replace(/[S/$.]/g, '').replace(',', '.');
-            let val = parseFloat(clean);
-            if (!isNaN(val) && i !== pIndex && val < 1000000) { // arbitrary sanity check
-                qIndex = i;
-                qty = val; // Using float for safety, display might round
-                break;
-            }
-        }
+/* CARDS & PANELS */
+.card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    /* Less rounded, more industrial */
+    padding: 0;
+    /* Reset for header structure */
+    position: relative;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    margin-bottom: 25px;
+    overflow: hidden;
+}
 
-        items.push({
-            producto: product.trim(),
-            cantidad: qty,
-            zona: zone
-        });
-    });
+/* Tech Corner Accents */
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 10px;
+    border-top: 2px solid var(--primary-neon);
+    border-left: 2px solid var(--primary-neon);
+}
 
-    if (items.length === 0) return alert("No se pudieron detectar productos válidos.");
+.card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 10px;
+    border-bottom: 2px solid var(--primary-neon);
+    border-right: 2px solid var(--primary-neon);
+}
 
-    console.log("Parsed Items:", items);
+.card-header {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
 
-    const confirmMsg = `Se detectaron ${items.length} productos.\nEjemplo: ${items[0].producto} - ${items[0].cantidad}\n\n¿Enviar a Solicitudes?`;
-    if (confirm(confirmMsg)) {
-        btn.innerText = "Enviando...";
-        btn.disabled = true;
+.card-header h3 {
+    font-family: var(--font-mono);
+    color: var(--primary-neon);
+    font-size: 1.2rem;
+    text-transform: uppercase;
+}
 
-        try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                mode: 'no-cors', // TEMPORARY FIX: GAS WebApps often have CORS issues if not handled perfectly.
-                // However, 'no-cors' prevents reading response. 
-                // Standard GAS + CORs setup usually works if 'ContentService' is set correctly.
-                // Reverting to standard fetch to try reading response.
-                body: JSON.stringify({
-                    action: 'bulkCreateSolicitudes',
-                    items: items
-                })
-            });
-            const result = await response.json();
+/* DASHBOARD STATS */
+.dashboard-grid {
+    display: flex;
+    /* Flex for better responsiveness on wide screens */
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 30px;
+}
 
-            if (result.success) {
-                alert("¡Importación Exitosa!");
-                closeImportModal();
-                loadModule('prod-solicitudes'); // Refresh
-            } else {
-                alert("Error: " + result.error);
-            }
-        } catch (error) {
-            // Because of CORS 'opaque' response in some GAS configurations, we might land here or 'no-cors'
-            // But let's assume standard JSON response.
-            // If CORS fails, we might need 'no-cors' but then we can't see success.
-            // Let's assume deploy is correct (Anonymous/Anyone).
-            alert("Nota: Si ves error de red, verifica que el script esté publicado como 'Anyone' (Cualquiera). \nDetalle: " + error.message);
-        } finally {
-            btn.innerText = "Procesar e Importar";
-            btn.disabled = false;
-        }
-    }
+.stat-card {
+    flex: 1;
+    min-width: 250px;
+    background: rgba(10, 10, 31, 0.6);
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    position: relative;
+    transition: 0.3s;
+    /* Gradient Border Trick */
+    background-clip: padding-box;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.stat-card:hover {
+    border-color: var(--primary-neon);
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+}
+
+.stat-label {
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.stat-val {
+    font-family: var(--font-mono);
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* TABLES */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background: rgba(0, 243, 255, 0.1);
+}
+
+th {
+    padding: 15px;
+    text-align: left;
+    color: var(--primary-neon);
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    font-family: var(--font-mono);
+}
+
+td {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.95rem;
+}
+
+tr:hover td {
+    background: rgba(255, 255, 255, 0.03);
+    color: #fff;
+    text-shadow: 0 0 5px var(--primary-neon);
+}
+
+/* BUTTONS */
+.btn-neon {
+    background: rgba(0, 243, 255, 0.1);
+    border: 1px solid var(--primary-neon);
+    color: var(--primary-neon);
+    padding: 8px 20px;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    letter-spacing: 1px;
+    box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
+}
+
+.btn-neon:hover {
+    background: var(--primary-neon);
+    color: #000;
+    box-shadow: 0 0 20px var(--primary-neon);
+}
+
+/* LOGIN */
+#login-container {
+    background: var(--bg-dark);
+    /* Ensure it covers everything */
+    z-index: 2000;
+    /* Top most */
+}
+
+.login-box {
+    background: var(--bg-panel);
+    border: 1px solid var(--primary-neon);
+    box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+    /* Clip corners */
+    clip-path: polygon(20px 0, 100% 0,
+            100% calc(100% - 20px), calc(100% - 20px) 100%,
+            0 100%, 0 20px);
+}
+
+input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    color: var(--primary-neon);
+    font-family: var(--font-mono);
+}
+
+input:focus {
+    border-color: var(--primary-neon);
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+}
+
+/* BADGES */
+.badge {
+    font-family: var(--font-mono);
+    border: 1px solid transparent;
+}
+
+.badge-pending {
+    color: var(--warning-neon);
+    border-color: var(--warning-neon);
+    background: rgba(255, 189, 0, 0.1);
+    box-shadow: 0 0 5px rgba(255, 189, 0, 0.2);
+}
+
+.badge-completed {
+    color: var(--success-neon);
+    border-color: var(--success-neon);
+    background: rgba(0, 255, 65, 0.1);
+    box-shadow: 0 0 5px rgba(0, 255, 65, 0.2);
 }

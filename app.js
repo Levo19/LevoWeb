@@ -119,25 +119,47 @@ function renderDashboard(container) {
         <div class="dashboard-grid">
             <div class="stat-card">
                 <div class="stat-label">Solicitudes Pendientes</div>
-                <div class="stat-val" style="color:var(--neon-orange)">0</div>
+                <div class="stat-val" style="color:var(--text-main)">0</div>
+                <div class="progress-container">
+                    <div class="progress-bar" style="width:0%; background:var(--warning-neon)"></div>
+                </div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Stock Crítico</div>
-                <div class="stat-val" style="color:var(--danger)">5</div>
+                <div class="stat-val" style="color:var(--text-main)">5</div>
+                 <div class="progress-container">
+                    <div class="progress-bar" style="width:60%; background:var(--danger-neon)"></div>
+                </div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Ventas Hoy</div>
-                <div class="stat-val" style="color:var(--neon-green)">S/ 0.00</div>
+                <div class="stat-val" style="color:var(--text-main)">S/ 0.00</div>
+                 <div class="progress-container">
+                    <div class="progress-bar" style="width:15%; background:var(--success-neon)"></div>
+                </div>
             </div>
         </div>
         
-         <div class="card">
-            <div class="card-header">
-                <h3>Bienvenido a LevoWeb 2.0</h3>
+         <div class="card" style="min-height:300px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <div style="text-align:center; padding:40px;">
+                <i class="fas fa-network-wired" style="font-size:4rem; color:var(--primary-neon); opacity:0.8; margin-bottom:20px; filter: drop-shadow(0 0 10px var(--primary-neon));"></i>
+                <h2 style="font-family:'Rajdhani'; font-size:2rem; margin-bottom:10px;">BIENVENIDO A LEVOWEB 2.0</h2>
+                <p style="color:var(--text-muted); max-width:500px; margin:0 auto; line-height:1.6;">
+                    Sistema de Gestión Integrado optimizado. Seleccione un módulo del menú lateral para comenzar sus operaciones.
+                </p>
             </div>
-            <p style="padding:20px; color:var(--text-muted)">Seleccione una opción del menú lateral para comenzar.</p>
+            <div style="width:100%; border-top:1px solid var(--border-color); padding:15px; text-align:center; font-size:0.8rem; color:var(--text-muted);">
+                SYSTEM STATUS: <span style="color:var(--success-neon)">ONLINE</span> // LAST SYNC: <span id="last-sync-time">--:--</span>
+            </div>
         </div>
     `;
+
+    // Update sync time
+    const now = new Date();
+    setTimeout(() => {
+        const el = document.getElementById('last-sync-time');
+        if (el) el.innerText = now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+    }, 100);
 }
 
 async function renderSolicitudes(container) {

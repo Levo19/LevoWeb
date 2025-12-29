@@ -361,9 +361,15 @@ tr:hover td {
 /* LOGIN */
 #login-container {
     background: var(--bg-dark);
-    /* Ensure it covers everything */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     z-index: 2000;
-    /* Top most */
 }
 
 .login-box {

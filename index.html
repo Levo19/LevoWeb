@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LevoWeb ERP</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h2><i class="fas fa-network-wired"></i> LevoWeb</h2>
+                <p>Sistema de Gestión Integrado</p>
+            </div>
+            <form id="login-form">
+                <div class="input-group">
+                    <label>Usuario</label>
+                    <input type="text" id="username" placeholder="Ingrese usuario" autocomplete="off" required>
+                </div>
+                <div class="input-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="password" placeholder="Ingrese contraseña" required>
+                </div>
+                <button type="submit" class="btn-login">Acceder <i class="fas fa-arrow-right"></i></button>
+            </form>
+            <div id="login-error" class="error-msg"></div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app-container" style="display:none;">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fas fa-cube"></i> LevoWeb
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-module="dashboard"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="#" class="nav-item" data-module="solicitudes"><i class="fas fa-file-invoice"></i>
+                    Solicitudes</a>
+                <a href="#" class="nav-item" data-module="warehouse"><i class="fas fa-dolly"></i> Warehouse</a>
+                <a href="#" class="nav-item" data-module="imos"><i class="fas fa-shopping-cart"></i> iMosWeb</a>
+                <a href="#" class="nav-item" data-module="settings"><i class="fas fa-cog"></i> Configuración</a>
+            </nav>
+            <div class="user-profile">
+                <div class="avatar">L</div>
+                <div class="info">
+                    <span class="name">Levo</span>
+                    <span class="role">Admin</span>
+                </div>
+                <button id="btn-logout" title="Cerrar Sesión"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="actions">
+                    <button class="btn-icon"><i class="fas fa-bell"></i></button>
+                    <div class="date-display" id="date-display">--/--/--</div>
+                </div>
+            </header>
+
+            <div id="module-content" class="content-wrapper">
+                <!-- DYNAMIC CONTENT GOES HERE -->
+            </div>
+        </main>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

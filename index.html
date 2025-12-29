@@ -20,24 +20,42 @@
 
     <!-- LOGIN SCREEN -->
     <div id="login-container">
-        <div class="login-box">
+        <div class="cyber-grid-bg"></div> <!-- Animated Background -->
+
+        <div class="login-card">
             <div class="login-header">
-                <h2><i class="fas fa-cube"></i> LevoWeb</h2>
-                <p>Sistema de Gestión Integrado</p>
+                <i class="fas fa-cube fa-spin" style="color:var(--primary-neon); font-size:2rem;"></i>
+                <h1>LEVOWEB <span style="font-size:1rem; color:var(--text-muted); letter-spacing:2px;">2.0</span></h1>
             </div>
+
             <form id="login-form">
                 <div class="input-group">
-                    <label>Usuario</label>
-                    <input type="text" id="username" placeholder="Ingrese usuario" autocomplete="off" required>
+                    <label>ID DE OPERADOR</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user-astronaut"></i>
+                        <input type="text" id="username" placeholder="Ingresa tu usuario" required autocomplete="off">
+                    </div>
                 </div>
-                <div class="input-group" style="margin-top:15px;">
-                    <label>Contraseña</label>
-                    <input type="password" id="password" placeholder="Ingrese contraseña" required>
+
+                <div class="input-group">
+                    <label>CLAVE DE ACCESO</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-key"></i>
+                        <input type="password" id="password" placeholder="••••••••" required>
+                    </div>
                 </div>
-                <button type="submit" class="btn-login" style="margin-top:25px;">Acceder <i
-                        class="fas fa-arrow-right"></i></button>
+
+                <button type="submit" class="btn-login">
+                    ACCEDER AL SISTEMA <i class="fas fa-arrow-right"></i>
+                </button>
+
+                <div id="login-error"></div>
             </form>
-            <div id="login-error" class="error-msg"></div>
+
+            <div class="login-footer">
+                <p>SECURE CONNECTION ESTABLISHED</p>
+                <p>V.2.5.0 // SYS.ADMIN</p>
+            </div>
         </div>
     </div>
 

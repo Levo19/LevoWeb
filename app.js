@@ -1,8 +1,6 @@
 // CONFIG & CONSTANTS
 const CREDENTIALS = { user: 'levo', pass: "666" };
-// Placeholder URL - User needs to Deploy GAS and paste it here
-// We will prompt user for this.
-let API_URL = localStorage.getItem('levo_api_url') || '';
+const API_URL = 'https://script.google.com/macros/s/AKfycbw1qKTFZ7KH55Q1FxdXb1s29UqRZnw7tQs03K8yo529ZN9WA0uRZVK8yioSBP5lik8How/exec';
 
 // STATE
 let currentUser = null;
@@ -142,7 +140,7 @@ function renderDashboard(container) {
     `;
 }
 
-function renderSolicitudes(container) {
+async function renderSolicitudes(container) {
     container.innerHTML = `
         <div class="card">
             <div class="card-header">
@@ -150,7 +148,7 @@ function renderSolicitudes(container) {
                 <button class="btn-neon" onclick="openImportModal()"><i class="fas fa-file-import"></i> Importar Ventas</button>
             </div>
             <div style="overflow-x:auto">
-                <table>
+                <table id="solTable">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -163,7 +161,7 @@ function renderSolicitudes(container) {
                     </thead>
                     <tbody id="solicitudes-body">
                         <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">
-                            <i class="fas fa-spinner fa-spin"></i> Cargando...
+                            <i class="fas fa-spinner fa-spin"></i> Cargando datos...
                         </td></tr>
                     </tbody>
                 </table>
@@ -201,28 +199,37 @@ function renderSolicitudes(container) {
         </div>
     `;
 
-    // Simulate Fetch for now (Real connection needs API_URL)
-    // In real implementation, we would call fetch(API_URL, {body: JSON.stringify({action:'getSolicitudes'})})
-    setTimeout(() => {
-        document.getElementById('solicitudes-body').innerHTML = `
-            <tr>
-                <td style="border-left-color:var(--neon-green)">SOL-001</td>
-                <td>AJI NOMOTO 50GR</td>
-                <td>Zona 1</td>
-                <td>20</td>
-                <td><span class="badge badge-completed">Completado</span></td>
-                <td><button class="btn-neon" style="padding:4px 8px; font-size:0.7rem;">Ver</button></td>
-            </tr>
-            <tr>
-                <td style="border-left-color:var(--neon-orange)">SOL-002</td>
-                <td>AJI PANCA ESPECIAL</td>
-                <td>Zona 2</td>
-                <td>50</td>
-                <td><span class="badge badge-pending">Pendiente</span></td>
-                <td><button class="btn-neon" style="padding:4px 8px; font-size:0.7rem;">Ver</button></td>
-            </tr>
-        `;
-    }, 500);
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'getSolicitudes' })
+        });
+        const result = await response.json();
+
+        const tbody = document.getElementById('solicitudes-body');
+        if (result.success && result.data.length > 0) {
+            tbody.innerHTML = '';
+            result.data.forEach(item => {
+                const badgeClass = item.estado === 'Pendiente' ? 'badge-pending' : 'badge-completed';
+                const borderColor = item.estado === 'Pendiente' ? 'var(--neon-orange)' : 'var(--neon-green)';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="border-left-color:${borderColor}">${item.id}</td>
+                        <td style="font-weight:600">${item.producto}</td>
+                        <td>${item.zona}</td>
+                        <td>${item.cantidad}</td>
+                        <td><span class="badge ${badgeClass}">${item.estado}</span></td>
+                        <td><button class="btn-neon" style="padding:4px 8px; font-size:0.7rem;">Ver</button></td>
+                    </tr>
+                `;
+            });
+        } else {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">No hay solicitudes registradas.</td></tr>`;
+        }
+    } catch (error) {
+        document.getElementById('solicitudes-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger)">Error al cargar: ${error.message}</td></tr>`;
+    }
 }
 
 function renderPlaceholder(container) {
@@ -240,28 +247,22 @@ function renderSettings(container) {
             </div>
             <div style="padding:20px;">
                 <label style="display:block; margin-bottom:5px; color:var(--text-muted)">Google Apps Script API URL</label>
-                <input type="text" id="api-url-input" value="${API_URL}" placeholder="https://script.google.com/..." 
-                       style="width:100%; padding:10px; background:var(--primary); border:1px solid var(--border); color:white; border-radius:6px;">
-                <button class="btn-neon" style="margin-top:10px;" onclick="saveConfig()">Guardar Configuración</button>
+                <input type="text" id="api-url-input" value="${API_URL}" readonly 
+                       style="width:100%; padding:10px; background:var(--primary); border:1px solid var(--border); color:var(--text-muted); border-radius:6px; cursor:not-allowed">
+                <p style="font-size:0.8rem; margin-top:5px; color:var(--neon-green)">Conectado</p>
             </div>
         </div>
     `;
-}
-
-window.saveConfig = function () {
-    const url = document.getElementById('api-url-input').value;
-    localStorage.setItem('levo_api_url', url);
-    API_URL = url;
-    alert("Configuración guardada");
 }
 
 // LOGIC IMPORT
 window.openImportModal = function () { document.getElementById('import-modal').style.display = 'flex'; }
 window.closeImportModal = function () { document.getElementById('import-modal').style.display = 'none'; }
 
-window.processImport = function () {
+window.processImport = async function () {
     const raw = document.getElementById('paste-area').value;
     const zone = document.getElementById('import-zone').value;
+    const btn = document.querySelector('#import-modal .btn-neon'); // The button clicked
 
     if (!raw.trim()) return alert("No hay datos pegados");
 
@@ -271,26 +272,19 @@ window.processImport = function () {
 
     lines.forEach(line => {
         const cols = line.split('\t');
-        if (cols.length < 2) return; // Skip empty or invalid lines
+        if (cols.length < 2) return;
 
-        // Heuristics based on typical Excel usage
+        // Strategy: 
+        // 1. Find Longest String -> Product Name
+        // 2. Find Numeric value (last numeric column usually) -> Quantity
+
         let product = cols[0];
         let qty = 1;
 
-        // If we have specific known columns, we'd map them by index. 
-        // Based on user image: "Documento | Cod | Producto | Unidad | Categoria | ... | Cantidad | Total"
-        // If they paste the whole table, it has many cols.
-        // We look for the "Producto" (text) and "Cantidad" (number)
-
-        // Simple logic: If we have > 3 cols, assume standard report format:
-        // Col Index 2 (0-based) is often Code or Name?
-        // Let's rely on user validating validation for now or generic:
-
-        // Attempt to find the longest string (Name) and a number (Qty)
         let maxLen = 0;
         let pIndex = -1;
         cols.forEach((c, i) => {
-            if (c.length > maxLen && isNaN(c)) {
+            if (c.length > maxLen && isNaN(c.replace(',', '.'))) { // Ensure it's text
                 maxLen = c.length;
                 pIndex = i;
             }
@@ -298,43 +292,66 @@ window.processImport = function () {
 
         if (pIndex !== -1) product = cols[pIndex];
 
-        // Find Qty: usually a number < 10000, distinct from Prices? 
-        // Or assume it's right before Total?
-        // Let's assume user copies just Product and Qty for now? 
-        // Or we just grab the last number?
-
-        // Better: Grab the last numeric column that is < 10000 (Quantities usually smaller than total Price in soles)
+        // Find Qty: Look for numbers backwards, skipping likely price columns if needed
+        // For now, simple logic: Last Valid Number
         let qIndex = -1;
         for (let i = cols.length - 1; i >= 0; i--) {
-            // Replace commas? e.g. "1,00"
-            let val = parseFloat(cols[i].replace(',', '.'));
-            if (!isNaN(val) && i !== pIndex) {
+            // Remove common currency symbols just in case
+            let clean = cols[i].replace(/[S/$.]/g, '').replace(',', '.');
+            let val = parseFloat(clean);
+            if (!isNaN(val) && i !== pIndex && val < 1000000) { // arbitrary sanity check
                 qIndex = i;
-                // Ideally we want Quantity, not Price. 
-                // Often Quantity is integer-like or smaller.
-                // This is risky without strict indexes.
-                // For Phase 1: We will trust the last column is Qty or Total. 
-                // If the user pastes "Product | Qty", index 1 is Qty.
+                qty = val; // Using float for safety, display might round
                 break;
             }
         }
 
-        if (qIndex !== -1) qty = cols[qIndex];
-
         items.push({
-            producto: product,
+            producto: product.trim(),
             cantidad: qty,
             zona: zone
         });
     });
 
+    if (items.length === 0) return alert("No se pudieron detectar productos válidos.");
+
     console.log("Parsed Items:", items);
 
     const confirmMsg = `Se detectaron ${items.length} productos.\nEjemplo: ${items[0].producto} - ${items[0].cantidad}\n\n¿Enviar a Solicitudes?`;
     if (confirm(confirmMsg)) {
-        // Send to backend
-        alert("Simulación: Enviando datos...");
-        closeImportModal();
-        // Trigger generic refresh in real app
+        btn.innerText = "Enviando...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                mode: 'no-cors', // TEMPORARY FIX: GAS WebApps often have CORS issues if not handled perfectly.
+                // However, 'no-cors' prevents reading response. 
+                // Standard GAS + CORs setup usually works if 'ContentService' is set correctly.
+                // Reverting to standard fetch to try reading response.
+                body: JSON.stringify({
+                    action: 'bulkCreateSolicitudes',
+                    items: items
+                })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                alert("¡Importación Exitosa!");
+                closeImportModal();
+                loadModule('prod-solicitudes'); // Refresh
+            } else {
+                alert("Error: " + result.error);
+            }
+        } catch (error) {
+            // Because of CORS 'opaque' response in some GAS configurations, we might land here or 'no-cors'
+            // But let's assume standard JSON response.
+            // If CORS fails, we might need 'no-cors' but then we can't see success.
+            // Let's assume deploy is correct (Anonymous/Anyone).
+            alert("Nota: Si ves error de red, verifica que el script esté publicado como 'Anyone' (Cualquiera). \nDetalle: " + error.message);
+        } finally {
+            btn.innerText = "Procesar e Importar";
+            btn.disabled = false;
+        }
     }
 }

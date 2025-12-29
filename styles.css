@@ -63,7 +63,8 @@ body {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    padding: 30px 20px;
+    /* More top padding */
     position: relative;
     box-shadow: 5px 0 20px rgba(0, 0, 0, 0.5);
     z-index: 100;
@@ -71,33 +72,40 @@ body {
 
 .brand {
     font-family: var(--font-mono);
-    font-size: 1.8rem;
+    font-size: 2rem;
+    /* Larger Brand */
     color: var(--primary-neon);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 30px;
+    letter-spacing: 3px;
+    margin-bottom: 40px;
+    /* More space below brand */
     text-shadow: 0 0 10px var(--primary-neon);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 15px;
+    padding-bottom: 20px;
 }
 
 .nav-menu {
     flex: 1;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    /* Space between items */
 }
 
 .nav-item {
     display: flex;
     align-items: center;
-    padding: 12px 15px;
+    padding: 15px 15px;
+    /* Beefier buttons */
     margin-bottom: 5px;
     color: var(--text-muted);
     text-decoration: none;
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1rem;
     border-left: 3px solid transparent;
     transition: all 0.3s ease;
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);

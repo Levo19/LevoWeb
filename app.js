@@ -1,409 +1,375 @@
-:root {
-    --bg-dark: #050510;
-    --bg-panel: #0a0a1f;
-    --bg-panel-transparent: rgba(10, 10, 31, 0.85);
+// CONFIG & CONSTANTS
+const CREDENTIALS = { user: 'levo', pass: "666" };
+const API_URL = 'https://script.google.com/macros/s/AKfycbw1qKTFZ7KH55Q1FxdXb1s29UqRZnw7tQs03K8yo529ZN9WA0uRZVK8yioSBP5lik8How/exec';
 
-    --primary-neon: #00f3ff;
-    /* Cyan */
-    --secondary-neon: #bc13fe;
-    /* Purple/Magenta */
-    --success-neon: #00ff41;
-    /* Hacker Green */
-    --warning-neon: #ffbd00;
-    --danger-neon: #ff003c;
+// STATE
+let currentUser = null;
 
-    --text-main: #e0faff;
-    --text-muted: #6b8bd2;
+// INIT
+document.addEventListener('DOMContentLoaded', () => {
+    checkSession();
+    setupNav();
+    setupLogin();
+});
 
-    --border-color: #1d2d50;
-    --glass-border: rgba(0, 243, 255, 0.2);
-
-    --font-ui: 'Rajdhani', sans-serif;
-    --font-mono: 'Share Tech Mono', monospace;
+function checkSession() {
+    const u = localStorage.getItem('levo_user');
+    if (u === CREDENTIALS.user) {
+        currentUser = u;
+        showApp();
+    } else {
+        showLogin();
+    }
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary-neon) var(--bg-dark);
+function setupLogin() {
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (document.getElementById('username').value === CREDENTIALS.user &&
+            document.getElementById('password').value === CREDENTIALS.pass) {
+            localStorage.setItem('levo_user', CREDENTIALS.user);
+            checkSession();
+        } else {
+            const err = document.getElementById('login-error');
+            err.innerText = "Credenciales incorrectas";
+            setTimeout(() => err.innerText = '', 2000);
+        }
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        localStorage.removeItem('levo_user');
+        location.reload();
+    });
 }
 
-body {
-    background-color: var(--bg-dark);
-    color: var(--text-main);
-    font-family: var(--font-ui);
-    height: 100vh;
-    overflow: hidden;
-    /* Cyberpunk Grid Background */
-    background-image:
-        linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    background-position: center top;
+function showApp() {
+    document.getElementById('login-container').style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    loadModule('dashboard');
 }
 
-/* APP SHELL: CSS GRID LAYOUT (Fixes piling) */
-#app-container {
-    display: grid;
-    grid-template-areas:
-        "sidebar header"
-        "sidebar content";
-    grid-template-columns: 260px 1fr;
-    grid-template-rows: 70px 1fr;
-    height: 100vh;
-    width: 100vw;
+function showLogin() {
+    document.getElementById('login-container').style.display = 'flex';
+    document.getElementById('app-container').style.display = 'none';
 }
 
-/* SIDEBAR */
-.sidebar {
-    grid-area: sidebar;
-    background: var(--bg-panel);
-    border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    padding: 30px 20px;
-    /* More top padding */
-    position: relative;
-    box-shadow: 5px 0 20px rgba(0, 0, 0, 0.5);
-    z-index: 100;
+// NAVIGATION SYSTEM
+const MODULES = {
+    dashboard: renderDashboard,
+    'prod-solicitudes': renderSolicitudes,
+    'prod-envasados': renderPlaceholder,
+    'prod-ajustes': renderPlaceholder,
+    'prod-auditorias': renderPlaceholder,
+    'mov-guias': renderPlaceholder,
+    'mov-preingresos': renderPlaceholder,
+    'usuarios': renderPlaceholder,
+    'compras': renderPlaceholder,
+    'settings': renderSettings
+};
+
+function setupNav() {
+    // Top Level toggles
+    document.querySelectorAll('.nav-group-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const group = header.parentElement;
+            group.classList.toggle('open');
+            const icon = header.querySelector('.fa-chevron-right');
+            if (icon) icon.style.transform = group.classList.contains('open') ? 'rotate(90deg)' : 'rotate(0deg)';
+        });
+    });
+
+    // Links
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+
+            const mod = link.dataset.module;
+            loadModule(mod);
+        });
+    });
 }
 
-.brand {
-    font-family: var(--font-mono);
-    font-size: 2rem;
-    /* Larger Brand */
-    color: var(--primary-neon);
-    text-transform: uppercase;
-    letter-spacing: 3px;
-    margin-bottom: 40px;
-    /* More space below brand */
-    text-shadow: 0 0 10px var(--primary-neon);
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 20px;
+function loadModule(moduleName) {
+    const container = document.getElementById('module-content');
+    const title = document.getElementById('page-title');
+
+    // Set Title
+    if (moduleName.includes('-')) {
+        const parts = moduleName.split('-');
+        title.innerText = parts[0].toUpperCase() + ': ' + parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+    } else {
+        title.innerText = moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
+    }
+
+    if (MODULES[moduleName]) {
+        MODULES[moduleName](container);
+    } else {
+        container.innerHTML = `<div class="card" style="text-align:center; padding:50px; color:var(--text-muted);">
+            <i class="fas fa-tools" style="font-size:3rem; margin-bottom:20px; color:var(--border);"></i>
+            <h3>Módulo en Desarrollo</h3>
+        </div>`;
+    }
 }
 
-.nav-menu {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    /* Space between items */
+// RENDERERS
+function renderDashboard(container) {
+    container.innerHTML = `
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <div class="stat-label">Solicitudes Pendientes</div>
+                <div class="stat-val" style="color:var(--neon-orange)">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Stock Crítico</div>
+                <div class="stat-val" style="color:var(--danger)">5</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ventas Hoy</div>
+                <div class="stat-val" style="color:var(--neon-green)">S/ 0.00</div>
+            </div>
+        </div>
+        
+         <div class="card">
+            <div class="card-header">
+                <h3>Bienvenido a LevoWeb 2.0</h3>
+            </div>
+            <p style="padding:20px; color:var(--text-muted)">Seleccione una opción del menú lateral para comenzar.</p>
+        </div>
+    `;
 }
 
-.nav-item {
-    display: flex;
-    align-items: center;
-    padding: 15px 15px;
-    /* Beefier buttons */
-    margin-bottom: 5px;
-    color: var(--text-muted);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 1rem;
-    border-left: 3px solid transparent;
-    transition: all 0.3s ease;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-    /* Preparación para hover tech */
+async function renderSolicitudes(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-file-invoice" style="color:var(--neon-orange)"></i> Gestión de Solicitudes</h3>
+                <button class="btn-neon" onclick="openImportModal()"><i class="fas fa-file-import"></i> Importar Ventas</button>
+            </div>
+            <div style="overflow-x:auto">
+                <table id="solTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Producto</th>
+                            <th>Zona</th>
+                            <th>Cantidad</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="solicitudes-body">
+                        <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">
+                            <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- IMPORT MODAL -->
+        <div id="import-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;">
+             <div class="card" style="width:600px; background:var(--primary-light);">
+                <div class="card-header">
+                    <h3>Importar Reporte de Ventas</h3>
+                    <button onclick="closeImportModal()" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">&times;</button>
+                </div>
+                
+                <div style="padding:20px;">
+                    <div style="margin-bottom:15px;">
+                        <label style="color:var(--text-muted); font-size:0.8rem;">Seleccione Zona (para asignar a estos pedidos)</label>
+                        <select id="import-zone" style="width:100%; padding:10px; background:var(--primary); color:white; border:1px solid var(--border); border-radius:6px; margin-top:5px;">
+                            <option value="Zona 1">Zona 1</option>
+                            <option value="Zona 2">Zona 2</option>
+                            <option value="General">General</option>
+                        </select>
+                    </div>
+
+                    <div class="upload-area" style="border:2px dashed var(--border); padding:20px; text-align:center; margin-bottom:20px; border-radius:8px;">
+                        <p style="color:var(--text-muted); margin-bottom:10px;">Copie desde Excel (Ctrl+C) y Pegue aquí (Ctrl+V)</p>
+                        <textarea id="paste-area" placeholder="Pegue las filas aquí..." style="width:100%; height:150px; background:var(--primary); color:white; border:none; padding:10px; font-family:monospace; font-size:0.8rem; border-radius:6px;"></textarea>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:flex-end;">
+                        <button class="btn-neon" onclick="processImport()">Procesar e Importar</button>
+                    </div>
+                </div>
+             </div>
+        </div>
+    `;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'getSolicitudes' })
+        });
+
+        const text = await response.text(); // Get raw text first
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Server Response was not JSON:", text);
+            throw new Error("Respuesta del servidor no válida (posible error HTML o Versión Antigua sin actualizar). Revisar Consola.");
+        }
+
+        const tbody = document.getElementById('solicitudes-body');
+        if (result.success && result.data.length > 0) {
+            tbody.innerHTML = '';
+            result.data.forEach(item => {
+                const badgeClass = item.estado === 'Pendiente' ? 'badge-pending' : 'badge-completed';
+                const borderColor = item.estado === 'Pendiente' ? 'var(--neon-orange)' : 'var(--neon-green)';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="border-left-color:${borderColor}">${item.id}</td>
+                        <td style="font-weight:600">${item.producto}</td>
+                        <td>${item.zona}</td>
+                        <td>${item.cantidad}</td>
+                        <td><span class="badge ${badgeClass}">${item.estado}</span></td>
+                        <td><button class="btn-neon" style="padding:4px 8px; font-size:0.7rem;">Ver</button></td>
+                    </tr>
+                `;
+            });
+        } else {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">${result.error || 'No hay solicitudes registradas.'}</td></tr>`;
+        }
+    } catch (error) {
+        document.getElementById('solicitudes-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger)">Error: ${error.message}</td></tr>`;
+    }
 }
 
-.nav-item:hover,
-.nav-item.active {
-    background: linear-gradient(90deg, rgba(0, 243, 255, 0.1), transparent);
-    color: var(--primary-neon);
-    border-left-color: var(--primary-neon);
-    text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
-    padding-left: 20px;
-    /* Slight movement */
+function renderPlaceholder(container) {
+    container.innerHTML = `<div class="card" style="text-align:center; padding:50px; color:var(--text-muted);">
+        <i class="fas fa-tools" style="font-size:3rem; margin-bottom:20px; color:var(--border);"></i>
+        <h3>Módulo en Desarrollo</h3>
+    </div>`;
 }
 
-/* Submodules */
-.nav-group-header {
-    padding: 12px 15px;
-    color: var(--text-muted);
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: 0.3s;
+function renderSettings(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3>Configuración</h3>
+            </div>
+            <div style="padding:20px;">
+                <label style="display:block; margin-bottom:5px; color:var(--text-muted)">Google Apps Script API URL</label>
+                <input type="text" id="api-url-input" value="${API_URL}" readonly 
+                       style="width:100%; padding:10px; background:var(--primary); border:1px solid var(--border); color:var(--text-muted); border-radius:6px; cursor:not-allowed">
+                <p style="font-size:0.8rem; margin-top:5px; color:var(--neon-green)">Conectado</p>
+            </div>
+        </div>
+    `;
 }
 
-.nav-group-header:hover {
-    color: var(--text-main);
-}
+// LOGIC IMPORT
+window.openImportModal = function () { document.getElementById('import-modal').style.display = 'flex'; }
+window.closeImportModal = function () { document.getElementById('import-modal').style.display = 'none'; }
 
-.nav-group-content {
-    display: none;
-    padding-left: 15px;
-    background: rgba(0, 0, 0, 0.2);
-}
+window.processImport = async function () {
+    const raw = document.getElementById('paste-area').value;
+    const zone = document.getElementById('import-zone').value;
+    const btn = document.querySelector('#import-modal .btn-neon');
 
-.nav-group.open .nav-group-content {
-    display: block;
-    border-left: 1px solid var(--border-color);
-}
+    if (!raw.trim()) return alert("No hay datos pegados");
 
+    const lines = raw.trim().split('\n').map(l => l.split('\t'));
+    if (lines.length < 2) return alert("Pega también los encabezados para detectar las columnas.");
 
-.user-profile {
-    display: flex;
-    align-items: center;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color);
-    gap: 10px;
-}
+    // Detect Columns by Header Name
+    // User Headers: "Cod. Interno", "Producto", "Cantidad Total", "Total de venta"
+    let idxCode = -1, idxName = -1, idxQty = -1, idxTotal = -1;
 
-.avatar {
-    width: 40px;
-    height: 40px;
-    background: var(--primary-neon);
-    color: #000;
-    font-weight: bold;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%);
-    /* Hex shape */
-}
+    // Scan first few rows to find header row
+    let headerRowIdx = 0;
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+        const rowStr = lines[i].join(' ').toLowerCase();
+        if (rowStr.includes('cod') && rowStr.includes('producto')) {
+            headerRowIdx = i;
+            // Map indices
+            lines[i].forEach((cell, cellIdx) => {
+                const c = cell.toLowerCase().trim();
+                // "Cod. Interno" or similar
+                if (c.includes('cod') && c.includes('interno')) idxCode = cellIdx;
+                else if (c.includes('cod') && idxCode === -1) idxCode = cellIdx; // Fallback
 
-/* TOP BAR */
-.top-bar {
-    grid-area: header;
-    background: var(--bg-panel-transparent);
-    backdrop-filter: blur(5px);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 30px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    z-index: 90;
-}
+                if (c === 'producto' || c === 'descripción' || c === 'descripcion') idxName = cellIdx;
 
-.top-bar h1 {
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    font-size: 1.5rem;
-    letter-spacing: 2px;
-    color: #fff;
-}
+                // "Cantidad Total"
+                if (c.includes('cantidad') && (c.includes('total') || c === 'cantidad')) idxQty = cellIdx;
 
-/* CONTENT AREA */
-.content-wrapper {
-    grid-area: content;
-    padding: 30px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    position: relative;
-    /* Scanline effect overlay */
-    background: repeating-linear-gradient(0deg,
-            transparent,
-            transparent 2px,
-            rgba(0, 243, 255, 0.02) 2px,
-            rgba(0, 243, 255, 0.02) 4px);
-}
+                // "Total de venta" or just "Total"
+                if ((c.includes('total') && c.includes('venta')) || (c === 'total' && idxTotal === -1)) idxTotal = cellIdx;
+            });
+            break;
+        }
+    }
 
-/* CARDS & PANELS */
-.card {
-    background: var(--bg-panel);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    /* Less rounded, more industrial */
-    padding: 0;
-    /* Reset for header structure */
-    position: relative;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-    margin-bottom: 25px;
-    overflow: hidden;
-}
+    if (idxCode === -1 || idxQty === -1 || idxTotal === -1) {
+        return alert("No se pudieron identificar las columnas: 'Cod. Interno', 'Cantidad Total' y 'Total de venta'. Asegurate de copiar los encabezados.");
+    }
 
-/* Tech Corner Accents */
-.card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 20px;
-    height: 10px;
-    border-top: 2px solid var(--primary-neon);
-    border-left: 2px solid var(--primary-neon);
-}
+    const items = [];
+    // Start parsing from next row
+    for (let i = headerRowIdx + 1; i < lines.length; i++) {
+        const row = lines[i];
+        if (!row[idxCode]) continue;
 
-.card::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 20px;
-    height: 10px;
-    border-bottom: 2px solid var(--primary-neon);
-    border-right: 2px solid var(--primary-neon);
-}
+        const code = row[idxCode].replace(/'/g, '').trim(); // Remove excel apostrophe
+        const name = row[idxName] || "Producto Desconocido";
+        const qty = parseFloat(row[idxQty].replace(/,/g, '')); // Handle "1,000"
+        const total = parseFloat(row[idxTotal].replace(/[S/$,]/g, '')); // Remove Currency
 
-.card-header {
-    background: rgba(0, 0, 0, 0.2);
-    padding: 15px 20px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+        if (code && !isNaN(qty) && !isNaN(total)) {
+            items.push({
+                code: code,
+                productName: name,
+                qty: qty,
+                total: total
+            });
+        }
+    }
 
-.card-header h3 {
-    font-family: var(--font-mono);
-    color: var(--primary-neon);
-    font-size: 1.2rem;
-    text-transform: uppercase;
-}
+    if (items.length === 0) return alert("No se encontraron filas de productos válidas.");
 
-/* DASHBOARD STATS */
-.dashboard-grid {
-    display: flex;
-    /* Flex for better responsiveness on wide screens */
-    flex-wrap: wrap;
-    gap: 20px;
-    margin-bottom: 30px;
-}
+    const confirmMsg = `Se procesarán ${items.length} líneas.\n\nEl sistema calculará el factor basándose en el precio unitario.\n\n¿Enviar a procesar?`;
+    if (confirm(confirmMsg)) {
+        btn.innerText = "Calculando índices...";
+        btn.disabled = true;
 
-.stat-card {
-    flex: 1;
-    min-width: 250px;
-    background: rgba(10, 10, 31, 0.6);
-    border: 1px solid var(--border-color);
-    padding: 20px;
-    position: relative;
-    transition: 0.3s;
-    /* Gradient Border Trick */
-    background-clip: padding-box;
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
-}
+        try {
+            // Use standard fetch if CORS allows, otherwise basic 'no-cors' wont return data
+            // We assume deployed as "Anyone".
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'processSalesImport', // New Action
+                    items: items,
+                    zona: zone
+                })
+            });
 
-.stat-card:hover {
-    border-color: var(--primary-neon);
-    box-shadow: 0 0 15px rgba(0, 243, 255, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
-    transform: translateY(-2px);
-}
+            const text = await response.text();
+            let result;
+            try { result = JSON.parse(text); }
+            catch (e) { throw new Error("Respuesta del servidor corrupta: " + text.substring(0, 50) + "..."); }
 
-.stat-label {
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    letter-spacing: 1px;
-    margin-bottom: 5px;
-}
+            if (result.success) {
+                alert(`¡Éxito! Se generaron ${result.inserted} solicitudes.`);
+                closeImportModal();
+                // Refresh table
+                const mod = document.querySelector('.nav-link.active');
+                if (mod && mod.dataset.module === 'prod-solicitudes') loadModule('prod-solicitudes');
+            } else {
+                alert("Error del servidor: " + result.error);
+            }
 
-.stat-val {
-    font-family: var(--font-mono);
-    font-size: 2.5rem;
-    font-weight: bold;
-    color: #fff;
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-}
-
-/* TABLES */
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-thead {
-    background: rgba(0, 243, 255, 0.1);
-}
-
-th {
-    padding: 15px;
-    text-align: left;
-    color: var(--primary-neon);
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    letter-spacing: 1px;
-    font-family: var(--font-mono);
-}
-
-td {
-    padding: 15px;
-    border-bottom: 1px solid var(--border-color);
-    font-size: 0.95rem;
-}
-
-tr:hover td {
-    background: rgba(255, 255, 255, 0.03);
-    color: #fff;
-    text-shadow: 0 0 5px var(--primary-neon);
-}
-
-/* BUTTONS */
-.btn-neon {
-    background: rgba(0, 243, 255, 0.1);
-    border: 1px solid var(--primary-neon);
-    color: var(--primary-neon);
-    padding: 8px 20px;
-    text-transform: uppercase;
-    font-family: var(--font-mono);
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
-    letter-spacing: 1px;
-    box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
-}
-
-.btn-neon:hover {
-    background: var(--primary-neon);
-    color: #000;
-    box-shadow: 0 0 20px var(--primary-neon);
-}
-
-/* LOGIN */
-#login-container {
-    background: var(--bg-dark);
-    /* Ensure it covers everything */
-    z-index: 2000;
-    /* Top most */
-}
-
-.login-box {
-    background: var(--bg-panel);
-    border: 1px solid var(--primary-neon);
-    box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
-    /* Clip corners */
-    clip-path: polygon(20px 0, 100% 0,
-            100% calc(100% - 20px), calc(100% - 20px) 100%,
-            0 100%, 0 20px);
-}
-
-input {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-color);
-    color: var(--primary-neon);
-    font-family: var(--font-mono);
-}
-
-input:focus {
-    border-color: var(--primary-neon);
-    box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
-}
-
-/* BADGES */
-.badge {
-    font-family: var(--font-mono);
-    border: 1px solid transparent;
-}
-
-.badge-pending {
-    color: var(--warning-neon);
-    border-color: var(--warning-neon);
-    background: rgba(255, 189, 0, 0.1);
-    box-shadow: 0 0 5px rgba(255, 189, 0, 0.2);
-}
-
-.badge-completed {
-    color: var(--success-neon);
-    border-color: var(--success-neon);
-    background: rgba(0, 255, 65, 0.1);
-    box-shadow: 0 0 5px rgba(0, 255, 65, 0.2);
+        } catch (error) {
+            alert("Error comunicación: " + error.message);
+        } finally {
+            btn.innerText = "Procesar e Importar";
+            btn.disabled = false;
+        }
+    }
 }

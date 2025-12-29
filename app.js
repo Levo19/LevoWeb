@@ -186,9 +186,12 @@ async function renderSolicitudes(container) {
                         </select>
                     </div>
 
-                    <div class="upload-area" style="border:2px dashed var(--border); padding:20px; text-align:center; margin-bottom:20px; border-radius:8px;">
-                        <p style="color:var(--text-muted); margin-bottom:10px;">Copie desde Excel (Ctrl+C) y Pegue aquí (Ctrl+V)</p>
-                        <textarea id="paste-area" placeholder="Pegue las filas aquí..." style="width:100%; height:150px; background:var(--primary); color:white; border:none; padding:10px; font-family:monospace; font-size:0.8rem; border-radius:6px;"></textarea>
+                    <div id="drop-zone" class="file-drop-zone">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--primary-neon); margin-bottom: 10px;"></i>
+                        <p style="margin-bottom: 10px; color:var(--text-main);">Arrastra tu Excel aquí o haz clic para buscar</p>
+                        <input type="file" id="import-file" accept=".xlsx, .xls" style="display:none">
+                        <button class="btn-neon" onclick="document.getElementById('import-file').click()">Buscar Archivo</button>
+                        <p id="file-name" style="margin-top: 10px; color: var(--success-neon); font-size: 0.9rem; font-weight:bold; min-height:1.2em;"></p>
                     </div>
                     
                     <div style="display:flex; justify-content:flex-end;">
@@ -264,112 +267,184 @@ function renderSettings(container) {
 }
 
 // LOGIC IMPORT
-window.openImportModal = function () { document.getElementById('import-modal').style.display = 'flex'; }
+window.openImportModal = function () {
+    document.getElementById('import-modal').style.display = 'flex';
+    // Reset inputs
+    const fileInput = document.getElementById('import-file');
+    if (fileInput) fileInput.value = '';
+    const fileName = document.getElementById('file-name');
+    if (fileName) fileName.innerText = '';
+
+    setupDragDrop(); // Ensure listeners are attached
+}
 window.closeImportModal = function () { document.getElementById('import-modal').style.display = 'none'; }
 
+function setupDragDrop() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('import-file');
+
+    if (!dropZone || dropZone.dataset.ready === 'true') return; // Prevent double binding
+    dropZone.dataset.ready = 'true';
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (fileInput.files.length) handleFileSelect(fileInput.files[0]);
+    });
+}
+
+function handleFileSelect(file) {
+    const fnDisplay = document.getElementById('file-name');
+    fnDisplay.innerText = "Archivo: " + file.name;
+    fnDisplay.classList.add('pulse-anim'); // Optional visual cue
+}
+
 window.processImport = async function () {
-    const raw = document.getElementById('paste-area').value;
+    const fileInput = document.getElementById('import-file');
+    const file = fileInput.files[0];
     const zone = document.getElementById('import-zone').value;
     const btn = document.querySelector('#import-modal .btn-neon');
 
-    if (!raw.trim()) return alert("No hay datos pegados");
+    if (!file) return alert("Por favor, selecciona o arrastra un archivo Excel.");
 
-    const lines = raw.trim().split('\n').map(l => l.split('\t'));
-    if (lines.length < 2) return alert("Pega también los encabezados para detectar las columnas.");
+    btn.innerText = "Leyendo Excel...";
+    btn.disabled = true;
 
-    // Detect Columns by Header Name
-    // User Headers: "Cod. Interno", "Producto", "Cantidad Total", "Total de venta"
-    let idxCode = -1, idxName = -1, idxQty = -1, idxTotal = -1;
+    const reader = new FileReader();
 
-    // Scan first few rows to find header row
-    let headerRowIdx = 0;
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
-        const rowStr = lines[i].join(' ').toLowerCase();
-        if (rowStr.includes('cod') && rowStr.includes('producto')) {
-            headerRowIdx = i;
-            // Map indices
-            lines[i].forEach((cell, cellIdx) => {
-                const c = cell.toLowerCase().trim();
-                // "Cod. Interno" or similar
-                if (c.includes('cod') && c.includes('interno')) idxCode = cellIdx;
-                else if (c.includes('cod') && idxCode === -1) idxCode = cellIdx; // Fallback
-
-                if (c === 'producto' || c === 'descripción' || c === 'descripcion') idxName = cellIdx;
-
-                // "Cantidad Total"
-                if (c.includes('cantidad') && (c.includes('total') || c === 'cantidad')) idxQty = cellIdx;
-
-                // "Total de venta" or just "Total"
-                if ((c.includes('total') && c.includes('venta')) || (c === 'total' && idxTotal === -1)) idxTotal = cellIdx;
-            });
-            break;
-        }
-    }
-
-    if (idxCode === -1 || idxQty === -1 || idxTotal === -1) {
-        return alert("No se pudieron identificar las columnas: 'Cod. Interno', 'Cantidad Total' y 'Total de venta'. Asegurate de copiar los encabezados.");
-    }
-
-    const items = [];
-    // Start parsing from next row
-    for (let i = headerRowIdx + 1; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row[idxCode]) continue;
-
-        const code = row[idxCode].replace(/'/g, '').trim(); // Remove excel apostrophe
-        const name = row[idxName] || "Producto Desconocido";
-        const qty = parseFloat(row[idxQty].replace(/,/g, '')); // Handle "1,000"
-        const total = parseFloat(row[idxTotal].replace(/[S/$,]/g, '')); // Remove Currency
-
-        if (code && !isNaN(qty) && !isNaN(total)) {
-            items.push({
-                code: code,
-                productName: name,
-                qty: qty,
-                total: total
-            });
-        }
-    }
-
-    if (items.length === 0) return alert("No se encontraron filas de productos válidas.");
-
-    const confirmMsg = `Se procesarán ${items.length} líneas.\n\nEl sistema calculará el factor basándose en el precio unitario.\n\n¿Enviar a procesar?`;
-    if (confirm(confirmMsg)) {
-        btn.innerText = "Calculando índices...";
-        btn.disabled = true;
-
+    reader.onload = async function (e) {
         try {
-            // Use standard fetch if CORS allows, otherwise basic 'no-cors' wont return data
-            // We assume deployed as "Anyone".
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: 'processSalesImport', // New Action
-                    items: items,
-                    zona: zone
-                })
-            });
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
 
-            const text = await response.text();
-            let result;
-            try { result = JSON.parse(text); }
-            catch (e) { throw new Error("Respuesta del servidor corrupta: " + text.substring(0, 50) + "..."); }
+            // Assume first sheet
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
 
-            if (result.success) {
-                alert(`¡Éxito! Se generaron ${result.inserted} solicitudes.`);
-                closeImportModal();
-                // Refresh table
-                const mod = document.querySelector('.nav-link.active');
-                if (mod && mod.dataset.module === 'prod-solicitudes') loadModule('prod-solicitudes');
-            } else {
-                alert("Error del servidor: " + result.error);
+            // Use header:1 to get raw array of arrays
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+            // Scan for Header Row (Cod + Producto)
+            let headerRowIdx = -1;
+            // Scan first 30 rows
+            for (let i = 0; i < Math.min(jsonData.length, 30); i++) {
+                const rowStr = JSON.stringify(jsonData[i]).toLowerCase();
+                if (rowStr.includes('cod') && rowStr.includes('producto')) {
+                    headerRowIdx = i;
+                    break;
+                }
             }
 
-        } catch (error) {
-            alert("Error comunicación: " + error.message);
+            if (headerRowIdx === -1) throw new Error("No se encontraron los encabezados 'Cod. Interno' y 'Producto' en las primeras 30 filas.");
+
+            // Map Columns
+            const headers = jsonData[headerRowIdx];
+            let idxCode = -1, idxName = -1, idxQty = -1, idxTotal = -1;
+
+            headers.forEach((h, i) => {
+                if (!h) return;
+                const txt = String(h).toLowerCase().trim();
+
+                if (txt.includes('cod') && txt.includes('interno')) idxCode = i;
+                else if (txt.includes('producto')) idxName = i;
+                else if (txt.includes('cantidad') && (txt.includes('total') || txt === 'cantidad')) idxQty = i;
+                else if ((txt.includes('total') && txt.includes('venta')) || txt === 'total') idxTotal = i;
+            });
+
+            if (idxCode === -1 || idxQty === -1 || idxTotal === -1) {
+                throw new Error(`Faltan columnas clave. Detectadas: Código(${idxCode !== -1}), Cantidad(${idxQty !== -1}), Total(${idxTotal !== -1}).`);
+            }
+
+            const items = [];
+
+            // Process Rows
+            for (let i = headerRowIdx + 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (!row || row.length === 0) continue;
+
+                // Handle Code as Text
+                let rawCode = row[idxCode];
+                if (rawCode === undefined || rawCode === null || rawCode === "") continue;
+
+                let codeStr = String(rawCode).trim().replace(/'/g, '');
+
+                const name = row[idxName] || "Desconocido";
+
+                // Clean numbers
+                let rawQty = String(row[idxQty]).replace(/,/g, '');
+                let rawTotal = String(row[idxTotal]).replace(/[S/$,]/g, '');
+
+                const qty = parseFloat(rawQty);
+                const total = parseFloat(rawTotal);
+
+                if (codeStr && !isNaN(qty) && !isNaN(total)) {
+                    // Filter out header repetition or empty junk
+                    items.push({
+                        code: codeStr,
+                        productName: name,
+                        qty: qty,
+                        total: total
+                    });
+                }
+            }
+
+            if (items.length === 0) throw new Error("No se encontraron productos válidos en el archivo.");
+
+            const confirmMsg = `Se detectaron ${items.length} productos.\n\n¿Enviar al servidor?`;
+
+            if (confirm(confirmMsg)) {
+                btn.innerText = "Calculando Factores...";
+
+                // Fetch
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'processSalesImport',
+                        items: items,
+                        zona: zone
+                    })
+                });
+
+                const text = await response.text();
+                let result;
+                try { result = JSON.parse(text); }
+                catch (e) { throw new Error("Respuesta inválida servidor: " + text.substring(0, 50)); }
+
+                if (result.success) {
+                    alert(`¡Éxito! Importados: ${result.inserted} registros.`);
+                    closeImportModal();
+                    // Refresh if needed
+                    const mod = document.querySelector('.nav-link.active');
+                    if (mod && mod.dataset.module === 'prod-solicitudes') loadModule('prod-solicitudes');
+                } else {
+                    alert("Error servidor: " + result.error);
+                }
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message);
         } finally {
             btn.innerText = "Procesar e Importar";
             btn.disabled = false;
         }
-    }
+    };
+
+    reader.readAsArrayBuffer(file);
 }

@@ -57,15 +57,15 @@
 
                 <div class="section-header" style="padding: 0 20px;">Operaciones</div>
 
-                <a href="#" class="nav-item" onclick="showView('products')">
-                    <i class="fas fa-boxes"></i> Catálogo
-                </a>
-                <a href="#" class="nav-item" onclick="showView('warehouse')">
-                    <i class="fas fa-warehouse"></i> Almacén
-                </a>
-                <a href="#" class="nav-item" onclick="showView('movements')">
-                    <i class="fas fa-truck-fast"></i> Movimientos
-                </a>
+                <div class="nav-item" onclick="showView('products')">
+                    <i class="fas fa-box"></i> <span>Catálogo</span>
+                </div>
+                <div class="nav-item" onclick="showView('movements')">
+                    <i class="fas fa-truck-loading"></i> <span>Movimientos</span>
+                </div>
+                <div class="nav-item" onclick="showView('warehouse')">
+                    <i class="fas fa-warehouse"></i> <span>Stock</span>
+                </div>
                 <a href="#" class="nav-item" onclick="showView('purchases')">
                     <i class="fas fa-cart-shopping"></i> Compras
                 </a>
@@ -136,6 +136,51 @@
                 </div>
             </div>
 
+            <!-- GUIA DETAIL MODAL -->
+            <div id="guia-modal" class="modal-backdrop">
+                <div class="modal-content" style="max-width: 800px;">
+                    <h2 style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">Detalle
+                        de Guía</h2>
+                    <div id="guia-modal-header"
+                        style="margin-bottom:20px; color:var(--text-secondary); font-size:13px;">
+                        <!-- Metadata info -->
+                    </div>
+
+                    <h3>Productos Registrados</h3>
+                    <div class="table-container" style="max-height:200px; overflow-y:auto; margin-bottom:20px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Cant</th>
+                                    <th>Vencimiento</th>
+                                </tr>
+                            </thead>
+                            <tbody id="guia-details-body"></tbody>
+                        </table>
+                    </div>
+
+                    <h3>Incidencias / Nuevos</h3>
+                    <div class="table-container" style="max-height:200px; overflow-y:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th>Cant</th>
+                                    <th>Código Barra</th>
+                                </tr>
+                            </thead>
+                            <tbody id="guia-new-body"></tbody>
+                        </table>
+                    </div>
+
+                    <div style="text-align:right; margin-top:20px;">
+                        <button class="btn-primary"
+                            onclick="document.getElementById('guia-modal').classList.remove('open')">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- VIEW: PRODUCTS (CATALOG) -->
             <div id="view-products" class="view-section hidden">
                 <div class="actions-bar" style="display:flex; justify-content:space-between; margin-bottom:20px;">
@@ -154,6 +199,46 @@
                     <!-- Products rendered via JS -->
                     <div style="text-align:center; grid-column:1/-1; padding:40px; color:var(--text-muted);">
                         <i class="fas fa-circle-notch fa-spin"></i> Cargando catálogo...
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOGISTICS / MOVEMENTS VIEW -->
+            <div id="view-movements" class="view-section" style="display:none;">
+                <h1>Control Logístico</h1>
+
+                <!-- TABS -->
+                <div class="tabs">
+                    <div class="tab active" onclick="switchLogisticsTab('preingresos')">Pre-ingresos (Recepción)</div>
+                    <div class="tab" onclick="switchLogisticsTab('guias')">Guías (Control)</div>
+                </div>
+
+                <!-- PRE-INGRESOS CONTENT -->
+                <div id="tab-preingresos" class="tab-content" style="display:block;">
+                    <div id="preingresos-grid" class="dashboard-grid">
+                        <!-- Filled by JS -->
+                        <div style="text-align:center; padding:20px; color:var(--text-muted);">Cargando recepciones...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GUIAS CONTENT -->
+                <div id="tab-guias" class="tab-content" style="display:none;">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Proveedor / Info</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="guias-table-body">
+                                <!-- Filled by JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

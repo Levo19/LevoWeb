@@ -240,3 +240,31 @@ window.processImport = async function () {
     };
     reader.readAsArrayBuffer(file);
 }
+
+// --- MOBILE MENU LOGIC ---
+window.toggleMobileMenu = function () {
+    const sidebar = document.querySelector('.sidebar');
+    const backdrop = document.getElementById('menu-backdrop');
+
+    if (sidebar.classList.contains('open')) {
+        // Close
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('open');
+    } else {
+        // Open
+        sidebar.classList.add('open');
+        backdrop.classList.add('open');
+    }
+}
+
+// Modify showView to auto-close menu on mobile
+const originalShowView = window.showView;
+window.showView = function (viewName) {
+    originalShowView(viewName);
+
+    // Auto-close on mobile
+    const sidebar = document.querySelector('.sidebar');
+    if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
+        toggleMobileMenu();
+    }
+}

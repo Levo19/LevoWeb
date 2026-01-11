@@ -549,8 +549,9 @@ window.openGuiaDetails = async function (idGuia) {
             const tbody1 = document.getElementById('guia-details-body');
             tbody1.innerHTML = '';
             res.details.forEach(d => {
+                const nameDisplay = d.productName ? `<b>${d.productName}</b><br><span style="font-size:10px; color:var(--text-muted);">${d.codigoProducto}</span>` : d.codigoProducto;
                 tbody1.innerHTML += `<tr>
-                    <td>${d.codigoProducto}</td>
+                    <td>${nameDisplay}</td>
                     <td><b>${d.cantidad}</b></td>
                     <td>${d.FechaVencimientoProducto ? new Date(d.FechaVencimientoProducto).toLocaleDateString() : '-'}</td>
                 </tr>`;
@@ -589,7 +590,10 @@ window.printTicket = async function (type, id) {
         if (!res.success) return alert("Error cargando datos para imprimir");
 
         let itemsHtml = '';
-        res.details.forEach(d => itemsHtml += `<tr><td>${d.codigoProducto}</td><td align="right">${d.cantidad}</td></tr>`);
+        res.details.forEach(d => {
+            const name = d.productName || d.codigoProducto;
+            itemsHtml += `<tr><td>${name}</td><td align="right">${d.cantidad}</td></tr>`;
+        });
         res.newProducts.forEach(n => itemsHtml += `<tr><td>${n.DescripcionProducto} (N)</td><td align="right">${n.Cantidad}</td></tr>`);
 
         content = `

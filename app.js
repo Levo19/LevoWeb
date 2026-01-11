@@ -107,6 +107,7 @@ window.showView = function (viewName) {
 
     // 6. Trigger Data Load
     if (viewName === 'products') loadProducts();
+    if (viewName === 'movements') loadLogistics();
     if (viewName === 'warehouse') loadWarehouseData();
 }
 
@@ -358,6 +359,156 @@ window.saveProductChanges = async function (e) {
         btn.innerText = originalText;
         btn.disabled = false;
     }
+}
+
+// --- LOGISTICS MODULE ---
+
+let LOGISTICS_CACHE = { preingresos: [], guias: [] };
+
+window.switchLogisticsTab = function (tabName) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+
+    // Find the clicked tab element by content logic or simple iteration
+    const tabs = document.querySelectorAll('.tab');
+    if (tabName === 'preingresos') tabs[0].classList.add('active');
+    if (tabName === 'guias') tabs[1].classList.add('active');
+
+    document.getElementById(`tab-${tabName}`).style.display = 'block';
+}
+
+async function loadLogistics() {
+    // Parallel Fetch
+    try {
+        const p1 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getPreingresos' }) }).then(r => r.json());
+        const p2 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getGuias' }) }).then(r => r.json());
+
+        const [resPre, resGuias] = await Promise.all([p1, p2]);
+
+        if (resPre.success) {
+            LOGISTICS_CACHE.preingresos = resPre.data;
+            renderPreingresos(resPre.data);
+        }
+        if (resGuias.success) {
+            LOGISTICS_CACHE.guias = resGuias.data;
+            renderGuias(resGuias.data);
+        }
+    } catch (e) {
+        console.error("Logistics Error", e);
+    }
+}
+
+function renderPreingresos(data) {
+    const grid = document.getElementById('preingresos-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    data.forEach(item => {
+        // Parse date
+        let dateStr = item.fecha;
+        try { dateStr = new Date(item.fecha).toLocaleDateString(); } catch (e) { }
+
+        // Parse photos (array format "[url, url]")
+        let thumb = 'https://placehold.co/400x300?text=No+Foto';
+        try {
+            // Clean weird formats if any
+            let raw = item.fotos;
+            if (raw && raw.startsWith('[')) {
+                const arr = JSON.parse(raw);
+                if (arr.length > 0) thumb = fixDriveLink(arr[0]);
+            }
+        } catch (e) { }
+
+        const card = document.createElement('div');
+        card.className = 'gallery-card';
+        card.innerHTML = `
+            <img src="${thumb}" class="gallery-img" onclick="window.open('${thumb.replace('=s400', '=s2000')}', '_blank')">
+            <div class="gallery-body">
+                <div class="gallery-title">${item.proveedor || 'Proveedor Desconocido'}</div>
+                <div class="gallery-meta">
+                    <span>${dateStr}</span>
+                    <span class="status-badge ${item.estado === 'PROCESADO' ? 'status-success' : 'status-pending'}">${item.estado}</span>
+                </div>
+                <div style="font-size:11px; margin-top:5px; color:var(--text-muted);">${item.comentario || ''}</div>
+                ${item.monto ? `<div style="margin-top:5px; font-weight:bold; color:var(--primary);">Total: $${Number(item.monto).toFixed(2)}</div>` : ''}
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function renderGuias(data) {
+    const tbody = document.getElementById('guias-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    data.forEach(g => {
+        const row = document.createElement('tr');
+        // Simple date format
+        let dateStr = g.fecha;
+        try { dateStr = new Date(g.fecha).toLocaleDateString(); } catch (e) { }
+
+        const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
+        const typeBadge = `<span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>`;
+
+        row.innerHTML = `
+            <td style="font-size:12px;">${dateStr}</td>
+            <td>${typeBadge}</td>
+            <td>
+                <div style="font-weight:600; font-size:13px;">${g.proveedor || g.usuario || '-'}</div>
+                <div style="font-size:10px; color:var(--text-muted);">ID: ${g.idGuia.substring(0, 8)}...</div>
+            </td>
+            <td><span class="status-badge status-success">${g.estado}</span></td>
+            <td>
+                <button class="btn-primary" style="padding:4px 8px; font-size:10px;" onclick="openGuiaDetails('${g.idGuia}')">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+window.openGuiaDetails = async function (idGuia) {
+    const modal = document.getElementById('guia-modal');
+    modal.classList.add('open');
+
+    // Set loading
+    document.getElementById('guia-details-body').innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+    document.getElementById('guia-new-body').innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST', body: JSON.stringify({ action: 'getGuiaDetails', payload: { idGuia: idGuia } })
+        }).then(r => r.json());
+
+        if (res.success) {
+            const tbody1 = document.getElementById('guia-details-body');
+            tbody1.innerHTML = '';
+            res.details.forEach(d => {
+                tbody1.innerHTML += `<tr>
+                    <td>${d.codigoProducto}</td>
+                    <td><b>${d.cantidad}</b></td>
+                    <td>${d.FechaVencimientoProducto ? new Date(d.FechaVencimientoProducto).toLocaleDateString() : '-'}</td>
+                </tr>`;
+            });
+            if (res.details.length === 0) tbody1.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Sin detalles estándar</td></tr>';
+
+            const tbody2 = document.getElementById('guia-new-body');
+            tbody2.innerHTML = '';
+            res.newProducts.forEach(n => {
+                tbody2.innerHTML += `<tr>
+                    <td>${n.DescripcionProducto}</td>
+                    <td><b>${n.Cantidad}</b></td>
+                    <td>${n.CodigoBarra || '-'}</td>
+                </tr>`;
+            });
+            if (res.newProducts.length === 0) tbody2.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Sin incidencias/nuevos</td></tr>';
+
+        } else {
+            alert("Error al cargar detalles");
+        }
+    } catch (e) { console.error(e); }
 }
 
 // --- MODULE LOGIC: WAREHOUSE (Placeholder for now) ---

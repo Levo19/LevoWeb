@@ -57,6 +57,9 @@
 
                 <div class="section-header" style="padding: 0 20px;">Operaciones</div>
 
+                <a href="#" class="nav-item" onclick="showView('products')">
+                    <i class="fas fa-boxes"></i> Catálogo
+                </a>
                 <a href="#" class="nav-item" onclick="showView('warehouse')">
                     <i class="fas fa-warehouse"></i> Almacén
                 </a>
@@ -133,6 +136,73 @@
                 </div>
             </div>
 
+            <!-- VIEW: PRODUCTS (CATALOG) -->
+            <div id="view-products" class="view-section hidden">
+                <div class="actions-bar" style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <div class="search-box" style="position:relative; width:300px;">
+                        <i class="fas fa-search"
+                            style="position:absolute; left:10px; top:12px; color:var(--text-muted);"></i>
+                        <input type="text" id="prod-search" placeholder="Buscar producto..." class="input-field"
+                            style="padding-left:35px;" onkeyup="filterProducts()">
+                    </div>
+                    <button class="btn-primary" onclick="alert('Creación no disponible. Edita en la hoja.')">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
+                </div>
+
+                <div id="products-grid" class="dashboard-grid">
+                    <!-- Products rendered via JS -->
+                    <div style="text-align:center; grid-column:1/-1; padding:40px; color:var(--text-muted);">
+                        <i class="fas fa-circle-notch fa-spin"></i> Cargando catálogo...
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRODUCT EDIT MODAL -->
+            <div id="product-modal" class="menu-backdrop">
+                <div class="login-card"
+                    style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); width:90%; max-width:500px; text-align:left;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                        <h3 style="margin:0;">Editar Producto</h3>
+                        <button onclick="closeProductModal()"
+                            style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+                    </div>
+
+                    <form id="product-form" onsubmit="saveProductChanges(event)">
+                        <input type="hidden" id="edit-row">
+
+                        <div class="input-wrapper">
+                            <label style="color:var(--text-secondary); font-size:12px;">Código</label>
+                            <input type="text" id="edit-code" class="input-field" disabled style="opacity:0.6">
+                        </div>
+
+                        <div class="input-wrapper">
+                            <label style="color:var(--text-secondary); font-size:12px;">Nombre</label>
+                            <input type="text" id="edit-name" class="input-field" required>
+                        </div>
+
+                        <div class="input-wrapper">
+                            <label style="color:var(--text-secondary); font-size:12px;">Descripción</label>
+                            <textarea id="edit-desc" class="input-field" rows="3"></textarea>
+                        </div>
+
+                        <div class="input-wrapper">
+                            <label style="color:var(--text-secondary); font-size:12px;">URL Imagen</label>
+                            <input type="text" id="edit-image" class="input-field" placeholder="https://...">
+                            <img id="edit-img-preview" src=""
+                                style="width:50px; height:50px; object-fit:cover; margin-top:5px; border-radius:4px; display:none;">
+                        </div>
+
+                        <div style="text-align:right; margin-top:20px;">
+                            <button type="button" onclick="closeProductModal()" class="btn-primary"
+                                style="background:var(--bg-surface); margin-right:10px;">Cancelar</button>
+                            <button type="submit" class="btn-primary"
+                                style="width:auto; padding:10px 30px;">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
             <!-- VIEW: OTHERS (Placeholder) -->
             <div id="view-warehouse" class="view-section hidden">
                 <h1>Gestión de Almacén</h1>
@@ -150,8 +220,11 @@
             <a href="#" class="bottom-nav-item active" onclick="showView('dashboard')">
                 <i class="fas fa-home"></i> <span>Inicio</span>
             </a>
+            <a href="#" class="bottom-nav-item" onclick="showView('products')">
+                <i class="fas fa-boxes"></i> <span>Catálogo</span>
+            </a>
             <a href="#" class="bottom-nav-item" onclick="showView('warehouse')">
-                <i class="fas fa-box"></i> <span>Stock</span>
+                <i class="fas fa-warehouse"></i> <span>Stock</span>
             </a>
             <a href="#" class="bottom-nav-item" onclick="showView('movements')">
                 <i class="fas fa-truck"></i> <span>Movs</span>

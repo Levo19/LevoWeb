@@ -232,21 +232,10 @@
 
                 <!-- GUIAS CONTENT -->
                 <div id="tab-guias" class="tab-content" style="display:none;">
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Tipo</th>
-                                    <th>Proveedor / Info</th>
-                                    <th>Estado</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="guias-table-body">
-                                <!-- Filled by JS -->
-                            </tbody>
-                        </table>
+                    <!-- New Card Container (Replacing Table) -->
+                    <div id="guias-container" class="dashboard-grid" style="grid-template-columns: 1fr;">
+                        <!-- 1 Column for vertical list -->
+                        <div style="text-align:center; padding:20px; color:var(--text-muted);">Cargando guías...</div>
                     </div>
                 </div>
             </div>

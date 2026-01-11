@@ -398,43 +398,83 @@ async function loadLogistics() {
     }
 }
 
+// --- PRE-INGRESOS ENHANCED ---
 function renderPreingresos(data) {
     const grid = document.getElementById('preingresos-grid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    data.forEach(item => {
-        // Parse date
-        let dateStr = item.fecha;
-        try { dateStr = new Date(item.fecha).toLocaleDateString(); } catch (e) { }
+    // Sort by date desc
+    data.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-        // Parse photos (array format "[url, url]")
+    data.forEach(item => {
+        let dateStr = item.fecha;
+        try { dateStr = new Date(item.fecha).toLocaleString(); } catch (e) { }
+
         let thumb = 'https://placehold.co/400x300?text=No+Foto';
+        let photoCount = 0;
+        let allPhotos = [];
+
         try {
-            // Clean weird formats if any
             let raw = item.fotos;
             if (raw && raw.startsWith('[')) {
-                const arr = JSON.parse(raw);
-                if (arr.length > 0) thumb = fixDriveLink(arr[0]);
+                allPhotos = JSON.parse(raw);
+                if (allPhotos.length > 0) {
+                    thumb = fixDriveLink(allPhotos[0]);
+                    photoCount = allPhotos.length;
+                }
+            } else if (raw) {
+                // Legacy single url
+                thumb = fixDriveLink(raw);
+                allPhotos = [raw];
+                photoCount = 1;
             }
         } catch (e) { }
 
         const card = document.createElement('div');
         card.className = 'gallery-card';
         card.innerHTML = `
-            <img src="${thumb}" class="gallery-img" onclick="window.open('${thumb.replace('=s400', '=s2000')}', '_blank')">
+            <div style="position:relative;">
+                <img src="${thumb}" class="gallery-img" onclick='openProtoGallery(${JSON.stringify(allPhotos)})'>
+                ${photoCount > 1 ? `<span style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.7); color:white; padding:2px 6px; border-radius:10px; font-size:10px;">+${photoCount - 1}</span>` : ''}
+            </div>
             <div class="gallery-body">
-                <div class="gallery-title">${item.proveedor || 'Proveedor Desconocido'}</div>
+                <div class="gallery-title" style="display:flex; justify-content:space-between;">
+                    <span>${item.proveedor || 'Desconocido'}</span>
+                    <button class="btn-icon-small" onclick="printTicket('PRE', '${item.idPreingreso}')"><i class="fas fa-print"></i></button>
+                </div>
                 <div class="gallery-meta">
                     <span>${dateStr}</span>
                     <span class="status-badge ${item.estado === 'PROCESADO' ? 'status-success' : 'status-pending'}">${item.estado}</span>
                 </div>
-                <div style="font-size:11px; margin-top:5px; color:var(--text-muted);">${item.comentario || ''}</div>
-                ${item.monto ? `<div style="margin-top:5px; font-weight:bold; color:var(--primary);">Total: $${Number(item.monto).toFixed(2)}</div>` : ''}
+                <!-- EDIT BUTTON -->
+                 <div style="margin-top:5px; display:flex; gap:5px;">
+                    <button class="btn-secondary-small" onclick='openEditPreingreso(${JSON.stringify(item)})' style="flex:1; font-size:11px;">Editar / Ver Detalles</button>
+                 </div>
             </div>
         `;
         grid.appendChild(card);
     });
+}
+
+window.openProtoGallery = function (photos) {
+    if (!photos || photos.length === 0) return;
+    photos.forEach(p => window.open(fixDriveLink(p).replace('=s400', '=s2000'), '_blank'));
+}
+
+// --- GUIAS ENHANCED (GROUP BY DAY & SEARCH) ---
+
+// Filter Function
+window.filterLogistics = function () {
+    const term = document.getElementById('logistics-search').value.toLowerCase();
+
+    // Filter Guias
+    const filteredGuias = LOGISTICS_CACHE.guias.filter(g =>
+        (g.proveedor && g.proveedor.toLowerCase().includes(term)) ||
+        (g.usuario && g.usuario.toLowerCase().includes(term)) ||
+        (g.idGuia && g.idGuia.toLowerCase().includes(term))
+    );
+    renderGuias(filteredGuias);
 }
 
 function renderGuias(data) {
@@ -442,30 +482,53 @@ function renderGuias(data) {
     if (!tbody) return;
     tbody.innerHTML = '';
 
+    // Group By Date
+    const groups = {};
     data.forEach(g => {
-        const row = document.createElement('tr');
-        // Simple date format
-        let dateStr = g.fecha;
-        try { dateStr = new Date(g.fecha).toLocaleDateString(); } catch (e) { }
+        let d = 'Sin Fecha';
+        try { d = new Date(g.fecha).toLocaleDateString(); } catch (e) { }
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(g);
+    });
 
-        const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
-        const typeBadge = `<span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>`;
+    // Sort groups DESC (newest dates first)
+    const sortedDates = Object.keys(groups).sort((a, b) => {
+        return new Date(groups[b][0].fecha) - new Date(groups[a][0].fecha);
+    });
 
-        row.innerHTML = `
-            <td style="font-size:12px;">${dateStr}</td>
-            <td>${typeBadge}</td>
-            <td>
-                <div style="font-weight:600; font-size:13px;">${g.proveedor || g.usuario || '-'}</div>
-                <div style="font-size:10px; color:var(--text-muted);">ID: ${g.idGuia.substring(0, 8)}...</div>
-            </td>
-            <td><span class="status-badge status-success">${g.estado}</span></td>
-            <td>
-                <button class="btn-primary" style="padding:4px 8px; font-size:10px;" onclick="openGuiaDetails('${g.idGuia}')">
-                    <i class="fas fa-eye"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(row);
+    sortedDates.forEach(dateKey => {
+        // GROUP HEADER
+        const headerRow = document.createElement('tr');
+        headerRow.innerHTML = `<td colspan="5" style="background:var(--bg-body); font-weight:bold; font-size:11px; padding:4px 10px; color:var(--text-muted);">${dateKey}</td>`;
+        tbody.appendChild(headerRow);
+
+        groups[dateKey].forEach(g => {
+            const row = document.createElement('tr');
+            let timeStr = '';
+            try { timeStr = new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { }
+
+            const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
+            const typeBadge = `<span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>`;
+
+            row.innerHTML = `
+                <td style="font-size:12px;">${timeStr}</td>
+                <td>${typeBadge}</td>
+                <td>
+                    <div style="font-weight:600; font-size:13px;">${g.proveedor || g.usuario || '-'}</div>
+                    <div style="font-size:10px; color:var(--text-muted); font-family:monospace;">${g.idGuia.substring(0, 6)}...</div>
+                </td>
+                <td><span class="status-badge status-success">${g.estado}</span></td>
+                <td>
+                    <button class="btn-primary" style="padding:4px 8px; font-size:10px;" onclick="openGuiaDetails('${g.idGuia}')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-secondary" style="padding:4px 8px; font-size:10px; margin-left:5px;" onclick="printTicket('GUIA', '${g.idGuia}')">
+                        <i class="fas fa-print"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
     });
 }
 

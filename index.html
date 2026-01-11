@@ -39,6 +39,9 @@
         </div>
     </div>
 
+    <!-- Menu Backdrop -->
+    <div id="menu-backdrop" class="menu-backdrop" onclick="toggleMobileMenu()"></div>
+
     <!-- MAIN APP Container -->
     <div id="app-container" style="display:none;">
 
@@ -153,8 +156,8 @@
             <a href="#" class="bottom-nav-item" onclick="showView('movements')">
                 <i class="fas fa-truck"></i> <span>Movs</span>
             </a>
-            <a href="#" class="bottom-nav-item" onclick="alert('Abriendo buscador...')">
-                <i class="fas fa-search"></i> <span>Buscar</span>
+            <a href="#" class="bottom-nav-item" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i> <span>Menú</span>
             </a>
         </nav>
 

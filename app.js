@@ -522,38 +522,89 @@ function renderGuias(data) {
             const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
 
             // ALERT LOGIC
-            const isPending = g.estado === 'PENDIENTE' || g.estado === 'EN PROCESO';
-            const hasAlert = g.hasIncidents && isPending;
-
             const card = document.createElement('div');
-            card.className = `guia-card ${hasAlert ? 'card-alert' : ''}`;
-            card.onclick = (e) => {
-                if (!e.target.closest('button')) openGuiaDetails(g.idGuia);
-            };
+            card.className = `guia-card ${g.hasIncidents ? 'has-incident' : ''}`;
+
+            // Image Logic (Comprobante)
+            let imgHtml = `<div class="guia-no-img"><i class="fas fa-file-invoice"></i></div>`;
+            if (g.foto) {
+                const url = fixDriveLink(g.foto);
+                imgHtml = `<img src="${url}" class="guia-img" onclick="event.stopPropagation(); window.open('${url}','_blank')">`;
+            }
+
+            // Evidence Link (Pre-ingreso)
+            let evidenceBtn = '';
+            if (g.idPreingreso) {
+                evidenceBtn = `<div class="evidence-link" onclick="event.stopPropagation(); openLinkedEvidence('${g.idPreingreso}')">
+                    <i class="fas fa-camera"></i> Ver Respaldo
+                </div>`;
+            }
+
+            // Incident Badge
+            let incidentBadge = '';
+            if (g.hasIncidents) {
+                incidentBadge = `<div class="alert-pulse"><i class="fas fa-exclamation-circle"></i> ${g.incidents ? g.incidents.length : ''} INCIDENCIAS</div>`;
+            }
+
+            // Status Color
+            const statusColor = (g.estado || '').toUpperCase() === 'COMPLETADO' ? 'status-success' : 'status-pending';
 
             card.innerHTML = `
-                <div class="guia-main">
-                    <div class="guia-row">
-                        <span class="guia-id">${g.idGuia.substring(0, 8)}</span>
-                        <span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>
-                        ${hasAlert ? '<span class="incident-pill"><i class="fas fa-exclamation-triangle"></i> Nuevos</span>' : ''}
-                    </div>
-                    <div class="guia-row">
-                         <div class="guia-prov">${g.proveedor || g.usuario || 'Sin Nombre'}</div>
-                    </div>
-                    <div class="guia-row">
-                        <span style="font-size:11px; color:var(--text-muted);"><i class="far fa-clock"></i> ${timeStr}</span>
-                        <span class="status-badge status-success" style="margin-left:auto;">${g.estado}</span>
-                    </div>
+                <div class="guia-img-section" title="Ver Comprobante">
+                    ${imgHtml}
                 </div>
-                <div class="guia-actions">
-                    <button class="btn-icon-small" onclick="printTicket('GUIA', '${g.idGuia}')"><i class="fas fa-print"></i></button>
-                    <button class="btn-icon-small"><i class="fas fa-chevron-right"></i></button>
+                <div class="guia-content" onclick="openGuiaDetails('${g.idGuia}')">
+                    <div class="guia-header">
+                        <div class="guia-prov">
+                            ${g.proveedor || g.usuario || 'Proveedor'}
+                            ${evidenceBtn}
+                        </div>
+                        ${incidentBadge}
+                    </div>
+                    
+                    <div class="guia-meta-row">
+                         <div class="guia-meta-item"><i class="far fa-clock"></i> ${new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                         <div class="guia-meta-item" style="font-family:monospace; opacity:0.7;">#${g.idGuia.substring(0, 8)}</div>
+                         <div class="guia-meta-item">${g.tipo || 'MOVIMIENTO'}</div>
+                    </div>
+                    
+                    <div class="guia-footer">
+                        <span class="status-badge-pill ${statusColor}">${g.estado}</span>
+                        <div class="guia-actions">
+                             <button class="btn-icon-small" onclick="event.stopPropagation(); printTicket('GUIA', '${g.idGuia}')" title="Imprimir Ticket">
+                                 <i class="fas fa-print"></i>
+                             </button>
+                             <button class="btn-primary" style="padding:4px 10px; font-size:11px;">
+                                 Ver Detalles <i class="fas fa-chevron-right"></i>
+                             </button>
+                        </div>
+                    </div>
                 </div>
             `;
             container.appendChild(card);
         });
     });
+}
+
+// Function to open linked Pre-ingreso photos
+window.openLinkedEvidence = function (idPre) {
+    if (!LOGISTICS_CACHE.preingresos) return alert("Cargando datos...");
+    // Robust search (trim)
+    const target = String(idPre).trim();
+    const item = LOGISTICS_CACHE.preingresos.find(p => String(p.idPreingreso).trim() === target);
+
+    if (item) {
+        let photos = [];
+        try {
+            if (item.fotos && item.fotos.startsWith('[')) photos = JSON.parse(item.fotos);
+            else if (item.fotos) photos = [item.fotos];
+        } catch (e) { }
+
+        if (photos.length > 0) openProtoGallery(photos);
+        else alert("Este pre-ingreso no tiene fotos adjuntas.");
+    } else {
+        alert("Pre-ingreso no encontrado en la lista actual (" + idPre + ")");
+    }
 }
 
 

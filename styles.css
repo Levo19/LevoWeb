@@ -178,6 +178,135 @@ body {
     display: none !important;
 }
 
+/* MODERN LOGISTICS CARDS */
+.logistics-group-header {
+    margin: 25px 0 15px 0;
+    font-size: 14px;
+    color: var(--primary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid rgba(13, 110, 253, 0.1);
+    padding-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.guia-card {
+    background: linear-gradient(145deg, #1e222d 0%, #232733 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.guia-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.guia-card:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+    border-color: rgba(13, 110, 253, 0.3);
+}
+
+.guia-card:hover::before {
+    opacity: 1;
+}
+
+.guia-main {
+    flex: 1;
+    z-index: 1;
+}
+
+.guia-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.guia-id {
+    font-family: 'SF Mono', 'Roboto Mono', monospace;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.guia-prov {
+    font-weight: 700;
+    font-size: 15px;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.guia-actions {
+    display: flex;
+    gap: 10px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.guia-card:hover .guia-actions {
+    opacity: 1;
+    transform: translateX(-5px);
+}
+
+/* INCIDENT ALERT ANIMATION */
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6);
+    }
+
+    70% {
+        box-shadow: 0 0 0 12px rgba(220, 53, 69, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+    }
+}
+
+.card-alert {
+    border: 1px solid var(--danger) !important;
+    background: linear-gradient(145deg, #2a1c21 0%, #232733 100%) !important;
+    animation: pulse-red 2s infinite;
+}
+
+.incident-pill {
+    background: linear-gradient(45deg, var(--danger), #ff4d5a);
+    color: white;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 5px rgba(220, 53, 69, 0.4);
+}
+
 /* --- LOGIN SCREEN --- */
 #login-container {
     position: fixed;

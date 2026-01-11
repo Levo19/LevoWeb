@@ -398,62 +398,69 @@ async function loadLogistics() {
     }
 }
 
-// --- PRE-INGRESOS ENHANCED ---
+// --- PRE-INGRESOS ENHANCED (GROUPED) ---
 function renderPreingresos(data) {
     const grid = document.getElementById('preingresos-grid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    // Sort by date desc
+    // Sort
     data.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
+    // Group
+    const groups = {};
     data.forEach(item => {
-        let dateStr = item.fecha;
-        try { dateStr = new Date(item.fecha).toLocaleString(); } catch (e) { }
+        let d = 'Sin Fecha';
+        try { d = new Date(item.fecha).toLocaleDateString(); } catch (e) { }
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(item);
+    });
 
-        let thumb = 'https://placehold.co/400x300?text=No+Foto';
-        let photoCount = 0;
-        let allPhotos = [];
+    Object.keys(groups).forEach(dateKey => {
+        // Header
+        const header = document.createElement('div');
+        header.className = 'logistics-group-header';
+        header.style.gridColumn = '1/-1'; // Span all
+        header.innerHTML = `<span><i class="far fa-calendar"></i> ${dateKey}</span> <span>${groups[dateKey].length} Items</span>`;
+        grid.appendChild(header);
 
-        try {
-            let raw = item.fotos;
-            if (raw && raw.startsWith('[')) {
-                allPhotos = JSON.parse(raw);
-                if (allPhotos.length > 0) {
-                    thumb = fixDriveLink(allPhotos[0]);
-                    photoCount = allPhotos.length;
-                }
-            } else if (raw) {
-                // Legacy single url
-                thumb = fixDriveLink(raw);
-                allPhotos = [raw];
-                photoCount = 1;
-            }
-        } catch (e) { }
+        groups[dateKey].forEach(item => {
+            let thumb = 'https://placehold.co/400x300?text=No+Foto';
+            let photoCount = 0;
+            let allPhotos = [];
+            try {
+                let raw = item.fotos;
+                if (raw && raw.startsWith('[')) {
+                    allPhotos = JSON.parse(raw);
+                    if (allPhotos.length > 0) { thumb = fixDriveLink(allPhotos[0]); photoCount = allPhotos.length; }
+                } else if (raw) { thumb = fixDriveLink(raw); allPhotos = [raw]; photoCount = 1; }
+            } catch (e) { }
 
-        const card = document.createElement('div');
-        card.className = 'gallery-card';
-        card.innerHTML = `
-            <div style="position:relative;">
-                <img src="${thumb}" class="gallery-img" onclick='openProtoGallery(${JSON.stringify(allPhotos)})'>
-                ${photoCount > 1 ? `<span style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.7); color:white; padding:2px 6px; border-radius:10px; font-size:10px;">+${photoCount - 1}</span>` : ''}
-            </div>
-            <div class="gallery-body">
-                <div class="gallery-title" style="display:flex; justify-content:space-between;">
-                    <span>${item.proveedor || 'Desconocido'}</span>
-                    <button class="btn-icon-small" onclick="printTicket('PRE', '${item.idPreingreso}')"><i class="fas fa-print"></i></button>
+            const card = document.createElement('div');
+            card.className = 'gallery-card';
+            card.innerHTML = `
+                <div style="position:relative;">
+                    <img src="${thumb}" class="gallery-img" onclick='openProtoGallery(${JSON.stringify(allPhotos)})'>
+                    ${photoCount > 1 ? `<span style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.7); color:white; padding:2px 6px; border-radius:10px; font-size:10px;">+${photoCount - 1}</span>` : ''}
                 </div>
-                <div class="gallery-meta">
-                    <span>${dateStr}</span>
-                    <span class="status-badge ${item.estado === 'PROCESADO' ? 'status-success' : 'status-pending'}">${item.estado}</span>
+                <div class="gallery-body">
+                    <div class="gallery-title" style="display:flex; justify-content:space-between;">
+                        <span>${item.proveedor || 'Desconocido'}</span>
+                        <button class="btn-icon-small" onclick="printTicket('PRE', '${item.idPreingreso}')"><i class="fas fa-print"></i></button>
+                    </div>
+                    <div class="gallery-meta">
+                        <span>${new Date(item.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span class="status-badge ${item.estado === 'PROCESADO' ? 'status-success' : 'status-pending'}">${item.estado}</span>
+                    </div>
+                    <!-- EDIT BUTTON -->
+                    <div style="margin-top:5px; display:flex; gap:5px;">
+                        <button class="btn-secondary-small" onclick='openEditPreingreso(${JSON.stringify(item)})' style="flex:1; font-size:11px;">Editar / Ver Detalles</button>
+                    </div>
+                    <div style="font-size:11px; margin-top:5px; color:var(--text-muted);">${item.comentario || ''}</div>
                 </div>
-                <!-- EDIT BUTTON -->
-                 <div style="margin-top:5px; display:flex; gap:5px;">
-                    <button class="btn-secondary-small" onclick='openEditPreingreso(${JSON.stringify(item)})' style="flex:1; font-size:11px;">Editar / Ver Detalles</button>
-                 </div>
-            </div>
-        `;
-        grid.appendChild(card);
+             `;
+            grid.appendChild(card);
+        });
     });
 }
 
@@ -472,15 +479,16 @@ window.filterLogistics = function () {
     const filteredGuias = LOGISTICS_CACHE.guias.filter(g =>
         (g.proveedor && g.proveedor.toLowerCase().includes(term)) ||
         (g.usuario && g.usuario.toLowerCase().includes(term)) ||
-        (g.idGuia && g.idGuia.toLowerCase().includes(term))
+        (g.idGuia && g.idGuia.toLowerCase().includes(term)) ||
+        (g.fecha && g.fecha.toLowerCase().includes(term))
     );
     renderGuias(filteredGuias);
 }
 
 function renderGuias(data) {
-    const tbody = document.getElementById('guias-table-body');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+    const container = document.getElementById('guias-container');
+    if (!container) return; // Matches HTML update
+    container.innerHTML = '';
 
     // Group By Date
     const groups = {};
@@ -491,26 +499,70 @@ function renderGuias(data) {
         groups[d].push(g);
     });
 
-    // Sort groups DESC (newest dates first)
+    // Sort groups DESC
     const sortedDates = Object.keys(groups).sort((a, b) => {
         return new Date(groups[b][0].fecha) - new Date(groups[a][0].fecha);
     });
 
     sortedDates.forEach(dateKey => {
-        // GROUP HEADER
-        const headerRow = document.createElement('tr');
-        headerRow.innerHTML = `<td colspan="5" style="background:var(--bg-body); font-weight:bold; font-size:11px; padding:4px 10px; color:var(--text-muted);">${dateKey}</td>`;
-        tbody.appendChild(headerRow);
+        // Group Header
+        const header = document.createElement('div');
+        header.className = 'logistics-group-header';
+        header.innerHTML = `<span><i class="far fa-calendar-alt"></i> ${dateKey}</span>`;
+        container.appendChild(header);
 
         groups[dateKey].forEach(g => {
-            const row = document.createElement('tr');
             let timeStr = '';
             try { timeStr = new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { }
-
             const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
-            const typeBadge = `<span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>`;
 
-            row.innerHTML = `
+            // ALERT LOGIC
+            const isPending = g.estado === 'PENDIENTE' || g.estado === 'EN PROCESO';
+            const hasAlert = g.hasIncidents && isPending;
+
+            const card = document.createElement('div');
+            card.className = `guia-card ${hasAlert ? 'card-alert' : ''}`;
+            card.onclick = (e) => {
+                if (!e.target.closest('button')) openGuiaDetails(g.idGuia);
+            };
+
+            card.innerHTML = `
+                <div class="guia-main">
+                    <div class="guia-row">
+                        <span class="guia-id">${g.idGuia.substring(0, 8)}</span>
+                        <span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>
+                        ${hasAlert ? '<span class="incident-pill"><i class="fas fa-exclamation-triangle"></i> Nuevos</span>' : ''}
+                    </div>
+                    <div class="guia-row">
+                         <div class="guia-prov">${g.proveedor || g.usuario || 'Sin Nombre'}</div>
+                    </div>
+                    <div class="guia-row">
+                        <span style="font-size:11px; color:var(--text-muted);"><i class="far fa-clock"></i> ${timeStr}</span>
+                        <span class="status-badge status-success" style="margin-left:auto;">${g.estado}</span>
+                    </div>
+                </div>
+                <div class="guia-actions">
+                    <button class="btn-icon-small" onclick="printTicket('GUIA', '${g.idGuia}')"><i class="fas fa-print"></i></button>
+                    <button class="btn-icon-small"><i class="fas fa-chevron-right"></i></button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    });
+}
+const headerRow = document.createElement('tr');
+headerRow.innerHTML = `<td colspan="5" style="background:var(--bg-body); font-weight:bold; font-size:11px; padding:4px 10px; color:var(--text-muted);">${dateKey}</td>`;
+tbody.appendChild(headerRow);
+
+groups[dateKey].forEach(g => {
+    const row = document.createElement('tr');
+    let timeStr = '';
+    try { timeStr = new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { }
+
+    const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
+    const typeBadge = `<span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>`;
+
+    row.innerHTML = `
                 <td style="font-size:12px;">${timeStr}</td>
                 <td>${typeBadge}</td>
                 <td>
@@ -527,8 +579,8 @@ function renderGuias(data) {
                     </button>
                 </td>
             `;
-            tbody.appendChild(row);
-        });
+    tbody.appendChild(row);
+});
     });
 }
 
@@ -560,14 +612,28 @@ window.openGuiaDetails = async function (idGuia) {
 
             const tbody2 = document.getElementById('guia-new-body');
             tbody2.innerHTML = '';
+
+            // Filter "PROCESADO" from view? User said it remains as "sombra".
+            // Let's show them but greyed out? Or hidden?
+            // "asi yo al guardar cambio el estado de la fila a 'PROCESADO' asi este producto procesado pasa a ser como una sombra"
+            // Suggests visible but inactive.
+
             res.newProducts.forEach(n => {
-                tbody2.innerHTML += `<tr>
-                    <td>${n.DescripcionProducto}</td>
+                const isProcessed = n.Estado === 'PROCESADO';
+                const rowStyle = isProcessed ? 'style="opacity:0.5; background:rgba(0,0,0,0.2);"' : '';
+                const actionBtn = isProcessed ? '<span style="font-size:10px;">Procesado</span>' :
+                    `<button class="btn-primary" style="padding:2px 6px; font-size:10px;" onclick='openIncidentResolve(${JSON.stringify(n)}, "${idGuia}")'>Procesar</button>`;
+
+                tbody2.innerHTML += `<tr ${rowStyle}>
+                    <td>
+                        <div style="font-weight:bold;">${n.DescripcionProducto}</div>
+                        <div style="font-size:10px; color:var(--text-muted);">${n.CodigoBarra || '-'}</div>
+                    </td>
                     <td><b>${n.Cantidad}</b></td>
-                    <td>${n.CodigoBarra || '-'}</td>
+                    <td>${actionBtn}</td>
                 </tr>`;
             });
-            if (res.newProducts.length === 0) tbody2.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Sin incidencias/nuevos</td></tr>';
+            if (res.newProducts.length === 0) tbody2.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Sin incidencias</td></tr>';
 
         } else {
             alert("Error al cargar detalles");
@@ -594,7 +660,15 @@ window.printTicket = async function (type, id) {
             const name = d.productName || d.codigoProducto;
             itemsHtml += `<tr><td>${name}</td><td align="right">${d.cantidad}</td></tr>`;
         });
-        res.newProducts.forEach(n => itemsHtml += `<tr><td>${n.DescripcionProducto} (N)</td><td align="right">${n.Cantidad}</td></tr>`);
+
+        // Filter out processed incidents for ticket?? User said "sombra".
+        // Maybe ticket should only show active ones?
+        // User said: "al procesarse debe agregarse una nueva fila a la guia detalle...".
+        // So the new valid item will appear in 'itemsHtml' (details) if we reload.
+        // The old incident shouldn't appear in the ticket or should appear as reference?
+        // Let's hide PROCESADO ones from Ticket for clarity.
+        const activeNew = res.newProducts.filter(n => n.Estado !== 'PROCESADO');
+        activeNew.forEach(n => itemsHtml += `<tr><td>${n.DescripcionProducto} (N)</td><td align="right">${n.Cantidad}</td></tr>`);
 
         content = `
             <div class="ticket">
@@ -668,6 +742,104 @@ window.printTicket = async function (type, id) {
     win.document.close();
 }
 
+window.openIncidentResolve = async function (item, idGuia) {
+    // Simple Prompt UI for now (User asked for "better design" later, but logic first)
+    // We need: New Code (from catalog), Qty, Expiry.
+    // Let's inject a modal overlay dynamically or reuse one.
+
+    // We need products list for validation/selection.
+    // Should check if we have them.
+    if (!window.PRODUCT_CATALOG_CACHE) {
+        // Fetch on demand
+        try {
+            const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getProducts' }) }).then(r => r.json());
+            if (res.success) window.PRODUCT_CATALOG_CACHE = res.data;
+        } catch (e) { }
+    }
+
+    let options = '';
+    if (window.PRODUCT_CATALOG_CACHE) {
+        window.PRODUCT_CATALOG_CACHE.forEach(p => {
+            options += `<option value="${p.code}">${p.name} (${p.code})</option>`;
+        });
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'menu-backdrop open';
+    overlay.style.zIndex = '1200';
+    overlay.innerHTML = `
+        <div class="login-card" style="width:90%; max-width:400px;">
+            <h3>Procesar Incidencia</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">
+                Producto: ${item.DescripcionProducto}<br>
+                Barra Orig: ${item.CodigoBarra}
+            </p>
+            
+            <label style="font-size:12px;">Producto Real (Catálogo)</label>
+            <input list="prod-list" id="inc-new-code" class="input-field" placeholder="Buscar código o nombre...">
+            <datalist id="prod-list">${options}</datalist>
+            
+            <label style="font-size:12px;">Cantidad Real</label>
+            <input type="number" id="inc-new-qty" class="input-field" value="${item.Cantidad}">
+            
+            <label style="font-size:12px;">Vencimiento</label>
+            <input type="date" id="inc-expiry" class="input-field">
+            
+            <div style="margin-top:20px; display:flex; gap:10px;">
+                 <button class="btn button-secondary" onclick="this.closest('.menu-backdrop').remove()">Cancelar</button>
+                 <button class="btn button-primary" onclick="submitIncidentResolve('${idGuia}', '${item.CodigoBarra}')">Guardar y Procesar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+window.submitIncidentResolve = async function (idGuia, oldBarcode) {
+    const newCode = document.getElementById('inc-new-code').value;
+    const newQty = document.getElementById('inc-new-qty').value;
+    const expiry = document.getElementById('inc-expiry').value;
+
+    // Extract code logic if using datalist "Name (Code)" format ??
+    // Actually datalist value is what is in the input. If option value is code, it puts code.
+    // If user types text, it might not be the code. Smart search needed?
+    // User said "abastecer del catalogo".
+    // Let's assume input has the code.
+
+    if (!newCode || !newQty) return alert("Falta código o cantidad");
+
+    const btn = event.target;
+    btn.innerText = "Procesando...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'processIncident',
+                payload: {
+                    idGuia: idGuia,
+                    oldBarcode: oldBarcode,
+                    newCode: newCode,
+                    newQty: newQty,
+                    newExpiry: expiry
+                }
+            })
+        }).then(r => r.json());
+
+        if (res.success) {
+            alert("Incidencia procesada correctamente.");
+            document.querySelector('.menu-backdrop.open[style*="z-index: 1200"]').remove(); // Close overlay
+            openGuiaDetails(idGuia); // Reload modal details
+        } else {
+            alert("Error: " + res.error);
+        }
+    } catch (e) {
+        alert("Error de red");
+    } finally {
+        btn.innerText = "Guardar y Procesar";
+        btn.disabled = false;
+    }
+}
 window.openEditPreingreso = function (item) {
     // Placeholder for now
     alert("Edición rápida: " + item.proveedor);

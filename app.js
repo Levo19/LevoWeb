@@ -245,6 +245,57 @@ window.openProductModal = function (code) {
     document.getElementById('product-modal').classList.add('open');
 }
 
+window.uploadProductImage = function () {
+    const fileInput = document.getElementById('upload-file-input');
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('upload-status');
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Subiendo ${file.name}...`;
+
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+        const base64Data = e.target.result.split(',')[1]; // Remove "data:image/png;base64," prefix
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'uploadImage',
+                    payload: {
+                        name: file.name,
+                        mimeType: file.type,
+                        data: base64Data
+                    }
+                })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                // Determine clean URL (fixDriveLink handles the rest)
+                const url = result.url;
+                document.getElementById('edit-image').value = url;
+
+                // Trigger Preview Update
+                const prev = document.getElementById('edit-img-preview');
+                const cleanImg = fixDriveLink(url);
+                prev.src = cleanImg;
+                prev.style.display = 'block';
+
+                statusEl.innerHTML = `<i class="fas fa-check" style="color:var(--success)"></i> Subida completada`;
+                setTimeout(() => statusEl.style.display = 'none', 2000);
+            } else {
+                statusEl.innerHTML = `<span style="color:var(--danger)">Error: ${result.error}</span>`;
+            }
+        } catch (err) {
+            console.error(err);
+            statusEl.innerHTML = `<span style="color:var(--danger)">Error de conexión</span>`;
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
 window.closeProductModal = function () {
     document.getElementById('product-modal').classList.remove('open');
 }

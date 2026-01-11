@@ -378,12 +378,13 @@ window.switchLogisticsTab = function (tabName) {
 }
 
 async function loadLogistics() {
-    // Parallel Fetch
+    // Parallel Fetch (Including Products now for Preload)
     try {
         const p1 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getPreingresos' }) }).then(r => r.json());
         const p2 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getGuias' }) }).then(r => r.json());
+        const p3 = !window.PRODUCT_CATALOG_CACHE ? fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getProducts' }) }).then(r => r.json()) : Promise.resolve({ success: true, data: window.PRODUCT_CATALOG_CACHE });
 
-        const [resPre, resGuias] = await Promise.all([p1, p2]);
+        const [resPre, resGuias, resProd] = await Promise.all([p1, p2, p3]);
 
         if (resPre.success) {
             LOGISTICS_CACHE.preingresos = resPre.data;
@@ -392,6 +393,10 @@ async function loadLogistics() {
         if (resGuias.success) {
             LOGISTICS_CACHE.guias = resGuias.data;
             renderGuias(resGuias.data);
+        }
+        if (resProd.success && resProd.data) {
+            window.PRODUCT_CATALOG_CACHE = resProd.data;
+            // Build simple name map for fast lookup if needed elsewhere
         }
     } catch (e) {
         console.error("Logistics Error", e);

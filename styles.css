@@ -304,11 +304,37 @@ body {
 
 /* --- MOBILE RESPONSIVE --- */
 @media (max-width: 768px) {
+
+    /* Sidebar becomes a Drawer */
     .sidebar {
-        display: none;
+        display: flex;
+        transform: translateX(-100%);
+        /* Hidden by default */
+        width: 85%;
+        /* Wider on mobile */
+        max-width: 300px;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
     }
 
-    /* Hide Sidebar */
+    .sidebar.open {
+        transform: translateX(0);
+        /* Slide in */
+    }
+
+    /* Backdrop for the drawer */
+    .menu-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 40;
+        /* Below sidebar, above content */
+        display: none;
+        backdrop-filter: blur(2px);
+    }
+
+    .menu-backdrop.open {
+        display: block;
+    }
 
     .main-content {
         margin-left: 0;

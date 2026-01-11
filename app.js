@@ -550,39 +550,7 @@ function renderGuias(data) {
         });
     });
 }
-const headerRow = document.createElement('tr');
-headerRow.innerHTML = `<td colspan="5" style="background:var(--bg-body); font-weight:bold; font-size:11px; padding:4px 10px; color:var(--text-muted);">${dateKey}</td>`;
-tbody.appendChild(headerRow);
 
-groups[dateKey].forEach(g => {
-    const row = document.createElement('tr');
-    let timeStr = '';
-    try { timeStr = new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { }
-
-    const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
-    const typeBadge = `<span class="status-badge" style="background:${isIngreso ? 'rgba(13,110,253,0.1)' : 'rgba(255,193,7,0.1)'}; color:${isIngreso ? '#0d6efd' : '#ffc107'}">${g.tipo}</span>`;
-
-    row.innerHTML = `
-                <td style="font-size:12px;">${timeStr}</td>
-                <td>${typeBadge}</td>
-                <td>
-                    <div style="font-weight:600; font-size:13px;">${g.proveedor || g.usuario || '-'}</div>
-                    <div style="font-size:10px; color:var(--text-muted); font-family:monospace;">${g.idGuia.substring(0, 6)}...</div>
-                </td>
-                <td><span class="status-badge status-success">${g.estado}</span></td>
-                <td>
-                    <button class="btn-primary" style="padding:4px 8px; font-size:10px;" onclick="openGuiaDetails('${g.idGuia}')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn-secondary" style="padding:4px 8px; font-size:10px; margin-left:5px;" onclick="printTicket('GUIA', '${g.idGuia}')">
-                        <i class="fas fa-print"></i>
-                    </button>
-                </td>
-            `;
-    tbody.appendChild(row);
-});
-    });
-}
 
 window.openGuiaDetails = async function (idGuia) {
     const modal = document.getElementById('guia-modal');

@@ -562,57 +562,113 @@ window.openGuiaDetails = async function (idGuia) {
     modal.classList.add('open');
 
     // Set loading
-    document.getElementById('guia-details-body').innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
-    document.getElementById('guia-new-body').innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
+    const prodsContainer = document.getElementById('guia-details-body');
+    const incidentContainer = document.getElementById('guia-new-body');
+
+    // 2. USE PRELOADED INCIDENTS IF AVAILABLE
+    incidentContainer.innerHTML = '';
+
+    let hasPreloadedIncidents = false;
+    // Check if we passed a full Guia object stored in cache or logic
+    // We need to find the Guia object from cache to get incidents
+    const cachedGuia = LOGISTICS_CACHE.guias.find(g => String(g.idGuia) === String(idGuia));
+
+    if (cachedGuia && cachedGuia.incidents && cachedGuia.incidents.length > 0) {
+        hasPreloadedIncidents = true;
+        renderIncidentsList(cachedGuia.incidents, incidentContainer, idGuia); // Pass idGuia
+    } else {
+        incidentContainer.innerHTML = '<div style="padding:10px; color:var(--text-muted);">Sin incidencias pendientes</div>';
+    }
+
+    // 3. FETCH FULL DETAILS (Standard Items)
+    // We still fetch details for the main list, but Incidents are instant now.
+    prodsContainer.innerHTML = '<div class="text-center p-3"><div class="spinner"></div> Cargando detalles...</div>';
 
     try {
-        const res = await fetch(API_URL, {
-            method: 'POST', body: JSON.stringify({ action: 'getGuiaDetails', payload: { idGuia: idGuia } })
-        }).then(r => r.json());
+        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getGuiaDetails', payload: { idGuia } }) }).then(r => r.json());
 
         if (res.success) {
-            const tbody1 = document.getElementById('guia-details-body');
-            tbody1.innerHTML = '';
-            res.details.forEach(d => {
-                const nameDisplay = d.productName ? `<b>${d.productName}</b><br><span style="font-size:10px; color:var(--text-muted);">${d.codigoProducto}</span>` : d.codigoProducto;
-                tbody1.innerHTML += `<tr>
-                    <td>${nameDisplay}</td>
-                    <td><b>${d.cantidad}</b></td>
-                    <td>${d.FechaVencimientoProducto ? new Date(d.FechaVencimientoProducto).toLocaleDateString() : '-'}</td>
-                </tr>`;
-            });
-            if (res.details.length === 0) tbody1.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Sin detalles estándar</td></tr>';
+            // Render Verified Products
+            if (res.details && res.details.length > 0) {
+                prodsContainer.innerHTML = '';
+                renderDetailsList(res.details, prodsContainer);
+            } else {
+                prodsContainer.innerHTML = '<div style="padding:10px; color:var(--text-muted); text-align:center;">No hay productos registrados aún.</div>';
+            }
 
-            const tbody2 = document.getElementById('guia-new-body');
-            tbody2.innerHTML = '';
-
-            // Filter "PROCESADO" from view? User said it remains as "sombra".
-            // Let's show them but greyed out? Or hidden?
-            // "asi yo al guardar cambio el estado de la fila a 'PROCESADO' asi este producto procesado pasa a ser como una sombra"
-            // Suggests visible but inactive.
-
-            res.newProducts.forEach(n => {
-                const isProcessed = n.Estado === 'PROCESADO';
-                const rowStyle = isProcessed ? 'style="opacity:0.5; background:rgba(0,0,0,0.2);"' : '';
-                const actionBtn = isProcessed ? '<span style="font-size:10px;">Procesado</span>' :
-                    `<button class="btn-primary" style="padding:2px 6px; font-size:10px;" onclick='openIncidentResolve(${JSON.stringify(n)}, "${idGuia}")'>Procesar</button>`;
-
-                tbody2.innerHTML += `<tr ${rowStyle}>
-                    <td>
-                        <div style="font-weight:bold;">${n.DescripcionProducto}</div>
-                        <div style="font-size:10px; color:var(--text-muted);">${n.CodigoBarra || '-'}</div>
-                    </td>
-                    <td><b>${n.Cantidad}</b></td>
-                    <td>${actionBtn}</td>
-                </tr>`;
-            });
-            if (res.newProducts.length === 0) tbody2.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Sin incidencias</td></tr>';
-
+            // If Backend returns incidents again, update? 
+            // The Preload is faster, but this might be fresher.
+            // Let's stick to Preload for speed unless empty.
+            if (!hasPreloadedIncidents && res.newProducts && res.newProducts.length > 0) {
+                renderIncidentsList(res.newProducts, incidentContainer, idGuia); // Pass idGuia
+            }
         } else {
-            alert("Error al cargar detalles");
+            prodsContainer.innerHTML = `<div class="text-danger">Error: ${res.error}</div>`;
         }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        prodsContainer.innerHTML = `<div class="text-danger">Error de conexión</div>`;
+    }
+};
+
+// Helper for Incidents
+function renderIncidentsList(list, container, idGuia) { // Added idGuia parameter
+    container.innerHTML = '';
+
+    const table = document.createElement('table');
+    table.className = 'table-modern';
+    table.style.width = '100%';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Descripción</th>
+                <th>Cant</th>
+                <th>Código Barra</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+
+    list.forEach(item => {
+        const tr = document.createElement('tr');
+        // JSON can be serialized in button safely
+        const itemStr = JSON.stringify(item).replace(/"/g, '&quot;');
+        tr.innerHTML = `
+            <td>${item.DescripcionProducto || 'Sin nombre'}</td>
+            <td>${item.Cantidad}</td>
+            <td><code>${item.CodigoBarra}</code></td>
+            <td>
+                <button class="btn-primary" style="padding:2px 8px; font-size:11px;" onclick="openIncidentResolve(${itemStr}, '${idGuia}')">
+                    Procesar
+                </button>
+            </td>
+        `;
+        table.querySelector('tbody').appendChild(tr);
+    });
+    container.appendChild(table);
 }
+
+// Helper for Standard Details
+function renderDetailsList(list, container) {
+    const table = document.createElement('table');
+    table.className = 'table-modern';
+    // ... logic for standard details ...
+    table.innerHTML = `<thead><tr><th>Código</th><th>Cant</th><th>Vencimiento</th></tr></thead><tbody></tbody>`;
+    list.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+           <td>
+               <div style="font-weight:bold; font-size:12px;">${d.productName || d.codigoProducto}</div>
+               <div style="font-size:10px; opacity:0.7;">${d.codigoProducto}</div>
+           </td>
+           <td>${d.cantidad}</td>
+           <td>${d.FechaVencimientoProducto ? new Date(d.FechaVencimientoProducto).toLocaleDateString() : '-'}</td>
+        `;
+        table.querySelector('tbody').appendChild(tr);
+    });
+    container.appendChild(table);
+}
+
 
 // --- TICKET PRINTING SYSTEM ---
 window.printTicket = async function (type, id) {
@@ -737,52 +793,82 @@ window.openIncidentResolve = async function (item, idGuia) {
         });
     }
 
-    const overlay = document.createElement('div');
-    overlay.className = 'menu-backdrop open';
-    overlay.style.zIndex = '1200';
-    overlay.innerHTML = `
-        <div class="login-card" style="width:90%; max-width:400px;">
-            <h3>Procesar Incidencia</h3>
-            <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">
-                Producto: ${item.DescripcionProducto}<br>
-                Barra Orig: ${item.CodigoBarra}
-            </p>
-            
-            <label style="font-size:12px;">Producto Real (Catálogo)</label>
-            <!-- Pre-fill with old barcode as requested -->
-            <input list="prod-list" id="inc-new-code" class="input-field" placeholder="Buscar código o nombre..." value="${item.CodigoBarra || ''}">
-            <datalist id="prod-list">${options}</datalist>
-            
-            <label style="font-size:12px;">Cantidad Real</label>
-            <input type="number" id="inc-new-qty" class="input-field" value="${item.Cantidad}">
-            
-            <label style="font-size:12px;">Vencimiento</label>
-            <input type="date" id="inc-expiry" class="input-field">
-            
-            <div style="margin-top:20px; display:flex; gap:10px;">
-                 <button class="btn button-secondary" onclick="this.closest('.menu-backdrop').remove()">Cancelar</button>
-                 <button class="btn button-primary" onclick="submitIncidentResolve('${idGuia}', '${item.CodigoBarra}')">Guardar y Procesar</button>
+    // Create or show the modal
+    let modal = document.getElementById('incident-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'incident-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-card">
+                <h3>Procesar Incidencia</h3>
+                <p id="inc-prod-desc" style="font-weight:bold; color:var(--primary);"></p>
+                <p id="inc-prod-meta" style="font-size:12px; color:var(--text-muted); margin-bottom:15px;"></p>
+                
+                <input type="hidden" id="inc-id-guia">
+                <input type="hidden" id="inc-old-barcode">
+                <input type="hidden" id="inc-id-producto"> <!-- NEW: Original Product ID -->
+                
+                <label style="font-size:12px;">Producto Real (Catálogo)</label>
+                <input list="prod-list" id="inc-new-code" class="input-field" placeholder="Buscar código o nombre...">
+                <datalist id="prod-list"></datalist>
+                
+                <label style="font-size:12px;">Cantidad Real</label>
+                <input type="number" id="inc-new-qty" class="input-field">
+                
+                <label style="font-size:12px;">Vencimiento</label>
+                <input type="date" id="inc-new-expiry" class="input-field">
+                
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                     <button class="btn button-secondary" onclick="closeModal('incident-modal')">Cancelar</button>
+                     <button class="btn button-primary" onclick="submitIncidentResolve()">Guardar y Procesar</button>
+                </div>
             </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Set Hidden Values
+    document.getElementById('inc-id-guia').value = idGuia;
+    document.getElementById('inc-old-barcode').value = item.CodigoBarra;
+    document.getElementById('inc-id-producto').value = item.IdProducto; // Store Original ID
+
+    // Set Visuals
+    document.getElementById('inc-prod-desc').innerText = item.DescripcionProducto;
+    document.getElementById('inc-prod-meta').innerText = `Cant: ${item.Cantidad} | Barra: ${item.CodigoBarra}`;
+
+    // Pre-fill inputs
+    document.getElementById('inc-new-code').value = item.CodigoBarra || '';
+    document.getElementById('inc-new-qty').value = item.Cantidad;
+    document.getElementById('inc-new-expiry').value = ''; // Clear expiry or pre-fill if available
+
+    // Update datalist options
+    document.getElementById('prod-list').innerHTML = options;
+
+    modal.classList.add('open');
 }
 
-window.submitIncidentResolve = async function (idGuia, oldBarcode) {
+// Helper to close any modal
+window.closeModal = function (modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('open');
+}
+
+window.submitIncidentResolve = async function () {
     const newCode = document.getElementById('inc-new-code').value;
     const newQty = document.getElementById('inc-new-qty').value;
-    const expiry = document.getElementById('inc-expiry').value;
+    const newExpiry = document.getElementById('inc-new-expiry').value;
 
-    // Extract code logic if using datalist "Name (Code)" format ??
-    // Actually datalist value is what is in the input. If option value is code, it puts code.
-    // If user types text, it might not be the code. Smart search needed?
-    // User said "abastecer del catalogo".
-    // Let's assume input has the code.
+    // Hidden Fields
+    const idGuia = document.getElementById('inc-id-guia').value;
+    const oldBarcode = document.getElementById('inc-old-barcode').value; // Keep for finding row if needed
+    const idProductoOriginal = document.getElementById('inc-id-producto').value; // CRITICAL: Original ID
 
-    if (!newCode || !newQty) return alert("Falta código o cantidad");
+    if (!newCode || !newQty) { alert("Completa código y cantidad"); return; }
 
-    const btn = event.target;
-    btn.innerText = "Procesando...";
+    const btn = document.querySelector('#incident-modal .btn-primary');
+    const OriginalText = btn.innerText;
+    btn.innerText = "Guardando...";
     btn.disabled = true;
 
     try {
@@ -791,26 +877,31 @@ window.submitIncidentResolve = async function (idGuia, oldBarcode) {
             body: JSON.stringify({
                 action: 'processIncident',
                 payload: {
-                    idGuia: idGuia,
-                    oldBarcode: oldBarcode,
-                    newCode: newCode,
-                    newQty: newQty,
-                    newExpiry: expiry
+                    idGuia,
+                    oldBarcode,
+                    idProductoOriginal, // New Field
+                    newCode,
+                    newQty,
+                    newExpiry
                 }
             })
         }).then(r => r.json());
 
         if (res.success) {
-            alert("Incidencia procesada correctamente.");
-            document.querySelector('.menu-backdrop.open[style*="z-index: 1200"]').remove(); // Close overlay
-            openGuiaDetails(idGuia); // Reload modal details
+            closeModal('incident-modal');
+            // Refresh Logistics to update lists and remove badge if empty
+            loadLogistics();
+            // Re-open details? Maybe just notify.
+            alert("Procesado correctamente");
+            // Optionally re-open details to show it's gone from list
+            openGuiaDetails(idGuia);
         } else {
             alert("Error: " + res.error);
         }
     } catch (e) {
         alert("Error de red");
     } finally {
-        btn.innerText = "Guardar y Procesar";
+        btn.innerText = OriginalText;
         btn.disabled = false;
     }
 }

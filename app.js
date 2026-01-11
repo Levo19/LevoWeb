@@ -96,6 +96,7 @@ window.showView = function (viewName) {
         // Map simplified names to Titles
         const titles = {
             'dashboard': 'Command Center',
+            'products': 'Catálogo Maestro',
             'warehouse': 'Gestión de Almacén',
             'movements': 'Movimientos',
             'purchases': 'Compras',
@@ -105,9 +106,162 @@ window.showView = function (viewName) {
     }
 
     // 6. Trigger Data Load
+    if (viewName === 'products') loadProducts();
     if (viewName === 'warehouse') loadWarehouseData();
 }
 
+
+// --- MODULE LOGIC: PRODUCTS (CATALOG) ---
+let PRODUCT_CACHE = [];
+
+async function loadProducts() {
+    const container = document.getElementById('products-grid');
+    container.innerHTML = `<div style="text-align:center; grid-column:1/-1; padding:40px; color:var(--text-muted);"><i class="fas fa-circle-notch fa-spin"></i> Cargando catálogo...</div>`;
+
+    if (PRODUCT_CACHE.length > 0) {
+        renderProductGrid(PRODUCT_CACHE);
+        // Background refresh
+        fetchProductsAPI();
+    } else {
+        await fetchProductsAPI();
+    }
+}
+
+async function fetchProductsAPI() {
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'getProducts' })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            PRODUCT_CACHE = result.data;
+            renderProductGrid(PRODUCT_CACHE);
+        } else {
+            console.error(result.error);
+        }
+    } catch (e) {
+        console.error("Fetch Error", e);
+    }
+}
+
+function renderProductGrid(list) {
+    const container = document.getElementById('products-grid');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (list.length === 0) {
+        container.innerHTML = `<div style="text-align:center; grid-column:1/-1; padding:20px;">No se encontraron productos.</div>`;
+        return;
+    }
+
+    list.forEach(p => {
+        const hasImg = p.image && p.image.length > 5;
+        const imgHtml = hasImg ? `<img src="${p.image}" class="prod-img" onerror="this.src='https://placehold.co/400x300?text=No+Img'">`
+            : `<i class="fas fa-box" style="font-size:2rem; opacity:0.3"></i>`;
+
+        const stockClass = p.stock <= p.minNodes ? (p.stock === 0 ? 'critical' : 'low') : '';
+        const stockIcon = p.stock <= p.minNodes ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-cubes"></i>';
+
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+            <div class="prod-img-box">${imgHtml}</div>
+            <button class="btn-edit" onclick="openProductModal('${p.code}')"><i class="fas fa-pencil"></i></button>
+            <div class="prod-body">
+                <div class="prod-code">${p.code}</div>
+                <div class="prod-title">${p.name}</div>
+                <div class="prod-stock ${stockClass}">
+                    ${stockIcon} Stock: <b>${p.stock}</b>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+window.filterProducts = function () {
+    const term = document.getElementById('prod-search').value.toLowerCase();
+    const filtered = PRODUCT_CACHE.filter(p =>
+        p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term)
+    );
+    renderProductGrid(filtered);
+}
+
+// --- PRODUCT EDIT MODAL ---
+window.openProductModal = function (code) {
+    const p = PRODUCT_CACHE.find(i => i.code === code);
+    if (!p) return;
+
+    document.getElementById('edit-row').value = p.row;
+    document.getElementById('edit-code').value = p.code;
+    document.getElementById('edit-name').value = p.name;
+    document.getElementById('edit-desc').value = p.desc;
+    document.getElementById('edit-image').value = p.image;
+
+    // Preview
+    const prev = document.getElementById('edit-img-preview');
+    if (p.image) { prev.src = p.image; prev.style.display = 'block'; }
+    else { prev.style.display = 'none'; }
+
+    // Logic for Image Input Change
+    document.getElementById('edit-image').onkeyup = (e) => {
+        if (e.target.value) { prev.src = e.target.value; prev.style.display = 'block'; }
+    };
+
+    document.getElementById('product-modal').classList.add('open');
+}
+
+window.closeProductModal = function () {
+    document.getElementById('product-modal').classList.remove('open');
+}
+
+window.saveProductChanges = async function (e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerText;
+    btn.innerText = "Guardando...";
+    btn.disabled = true;
+
+    const payload = {
+        row: parseInt(document.getElementById('edit-row').value),
+        code: document.getElementById('edit-code').value,
+        name: document.getElementById('edit-name').value,
+        desc: document.getElementById('edit-desc').value,
+        image: document.getElementById('edit-image').value
+    };
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'saveProduct', payload: payload })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert("Producto actualizado correctamente.");
+            closeProductModal();
+            // Update Local Cache
+            const idx = PRODUCT_CACHE.findIndex(p => p.code === payload.code);
+            if (idx !== -1) {
+                PRODUCT_CACHE[idx].name = payload.name;
+                PRODUCT_CACHE[idx].desc = payload.desc;
+                PRODUCT_CACHE[idx].image = payload.image;
+                renderProductGrid(PRODUCT_CACHE); // Re-render immediately
+            }
+        } else {
+            alert("Error: " + result.error);
+        }
+    } catch (err) {
+        alert("Error de conexión");
+        console.error(err);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
 
 // --- MODULE LOGIC: WAREHOUSE (Placeholder for now) ---
 async function loadWarehouseData() {

@@ -146,6 +146,19 @@ async function fetchProductsAPI() {
     }
 }
 
+// Helper to fix Drive Links
+function fixDriveLink(url) {
+    if (!url) return '';
+    // If it's a Drive standard export link, convert to thumbnail for speed/reliability
+    if (url.includes('drive.google.com') && url.includes('id=')) {
+        const match = url.match(/id=([^&]+)/);
+        if (match && match[1]) {
+            return `https://lh3.googleusercontent.com/d/${match[1]}=s400`; // s400 = 400px widht
+        }
+    }
+    return url;
+}
+
 function renderProductGrid(list) {
     const container = document.getElementById('products-grid');
     if (!container) return;
@@ -158,8 +171,9 @@ function renderProductGrid(list) {
     }
 
     list.forEach(p => {
-        const hasImg = p.image && p.image.length > 5;
-        const imgHtml = hasImg ? `<img src="${p.image}" class="prod-img" onerror="this.src='https://placehold.co/400x300?text=No+Img'">`
+        const cleanImg = fixDriveLink(p.image);
+        const hasImg = cleanImg && cleanImg.length > 5;
+        const imgHtml = hasImg ? `<img src="${cleanImg}" class="prod-img" onerror="this.src='https://placehold.co/400x300?text=No+Img'">`
             : `<i class="fas fa-box" style="font-size:2rem; opacity:0.3"></i>`;
 
         const stockClass = p.stock <= p.minNodes ? (p.stock === 0 ? 'critical' : 'low') : '';
@@ -174,7 +188,8 @@ function renderProductGrid(list) {
                 <div class="prod-code">${p.code}</div>
                 <div class="prod-title">${p.name}</div>
                 <div class="prod-stock ${stockClass}">
-                    ${stockIcon} Stock: <b>${p.stock}</b>
+                    ${stockIcon} <b>${p.stock}</b> <span style="font-size:10px; opacity:0.7">${p.unitMeasure}</span>
+                    <span style="font-weight:600; margin-left:auto;">${p.unitPrice ? '$' + p.unitPrice.toFixed(2) : '-'}</span>
                 </div>
             </div>
         `;
@@ -201,14 +216,30 @@ window.openProductModal = function (code) {
     document.getElementById('edit-desc').value = p.desc;
     document.getElementById('edit-image').value = p.image;
 
+    // Pricing
+    document.getElementById('edit-unitprice').value = p.unitPrice || '';
+    document.getElementById('edit-unitmeasure').value = p.unitMeasure || '';
+
+    // Presentations 1-3
+    const setPres = (idx, data) => {
+        document.getElementById(`edit-p${idx}-name`).value = data?.name || '';
+        document.getElementById(`edit-p${idx}-factor`).value = data?.factor || '';
+        document.getElementById(`edit-p${idx}-price`).value = data?.price || '';
+    };
+    setPres(1, p.pres1);
+    setPres(2, p.pres2);
+    setPres(3, p.pres3);
+
     // Preview
     const prev = document.getElementById('edit-img-preview');
-    if (p.image) { prev.src = p.image; prev.style.display = 'block'; }
+    const cleanImg = fixDriveLink(p.image);
+    if (cleanImg) { prev.src = cleanImg; prev.style.display = 'block'; }
     else { prev.style.display = 'none'; }
 
     // Logic for Image Input Change
     document.getElementById('edit-image').onkeyup = (e) => {
-        if (e.target.value) { prev.src = e.target.value; prev.style.display = 'block'; }
+        const val = fixDriveLink(e.target.value);
+        if (val) { prev.src = val; prev.style.display = 'block'; }
     };
 
     document.getElementById('product-modal').classList.add('open');
@@ -225,12 +256,26 @@ window.saveProductChanges = async function (e) {
     btn.innerText = "Guardando...";
     btn.disabled = true;
 
+    // Helper to get pres data
+    const getPres = (idx) => ({
+        name: document.getElementById(`edit-p${idx}-name`).value,
+        factor: Number(document.getElementById(`edit-p${idx}-factor`).value),
+        price: Number(document.getElementById(`edit-p${idx}-price`).value)
+    });
+
     const payload = {
         row: parseInt(document.getElementById('edit-row').value),
         code: document.getElementById('edit-code').value,
         name: document.getElementById('edit-name').value,
         desc: document.getElementById('edit-desc').value,
-        image: document.getElementById('edit-image').value
+        image: document.getElementById('edit-image').value,
+
+        unitPrice: Number(document.getElementById('edit-unitprice').value),
+        unitMeasure: document.getElementById('edit-unitmeasure').value,
+
+        pres1: getPres(1),
+        pres2: getPres(2),
+        pres3: getPres(3)
     };
 
     try {
@@ -246,10 +291,11 @@ window.saveProductChanges = async function (e) {
             // Update Local Cache
             const idx = PRODUCT_CACHE.findIndex(p => p.code === payload.code);
             if (idx !== -1) {
-                PRODUCT_CACHE[idx].name = payload.name;
-                PRODUCT_CACHE[idx].desc = payload.desc;
-                PRODUCT_CACHE[idx].image = payload.image;
-                renderProductGrid(PRODUCT_CACHE); // Re-render immediately
+                if (idx !== -1) {
+                    // Merge updates to cache
+                    Object.assign(PRODUCT_CACHE[idx], payload);
+                    renderProductGrid(PRODUCT_CACHE); // Re-render immediately
+                }
             }
         } else {
             alert("Error: " + result.error);

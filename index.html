@@ -3,16 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LevoWeb 2.0</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LevoWeb | Command Center</title>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap"
-        rel="stylesheet">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -20,138 +17,151 @@
 
     <!-- LOGIN SCREEN -->
     <div id="login-container">
-        <div class="cyber-grid-bg"></div> <!-- Animated Background -->
-
         <div class="login-card">
-            <div class="login-header">
-                <i class="fas fa-cube fa-spin" style="color:var(--primary-neon); font-size:2rem;"></i>
-                <h1>LEVOWEB <span style="font-size:1rem; color:var(--text-muted); letter-spacing:2px;">2.0</span></h1>
+            <div class="login-logo">
+                <i class="fas fa-boxes-stacked"></i> LEVOWEB
             </div>
 
             <form id="login-form">
-                <div class="input-group">
-                    <label>ID DE OPERADOR</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-user-astronaut"></i>
-                        <input type="text" id="username" placeholder="Ingresa tu usuario" required autocomplete="off">
-                    </div>
+                <div class="input-wrapper">
+                    <input type="password" id="password" class="input-field" placeholder="Clave de Acceso" required
+                        autofocus>
                 </div>
-
-                <div class="input-group">
-                    <label>CLAVE DE ACCESO</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-key"></i>
-                        <input type="password" id="password" placeholder="••••••••" required>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-login">
-                    ACCEDER AL SISTEMA <i class="fas fa-arrow-right"></i>
+                <button type="submit" class="btn-primary">
+                    Desbloquear Sistema
                 </button>
-
-                <div id="login-error"></div>
+                <div id="login-error" style="color:var(--danger); margin-top:15px; font-size:13px;"></div>
             </form>
 
-            <div class="login-footer">
-                <p>SECURE CONNECTION ESTABLISHED</p>
-                <p>V.2.5.0 // SYS.ADMIN</p>
+            <div style="margin-top: 20px; font-size: 12px; color: var(--text-muted);">
+                Single-User Mode • v3.0
             </div>
         </div>
     </div>
 
-    <!-- MAIN APP -->
+    <!-- MAIN APP Container -->
     <div id="app-container" style="display:none;">
 
-        <!-- SIDEBAR -->
+        <!-- DESKTOP SIDEBAR -->
         <aside class="sidebar">
-            <div class="brand">
-                <i class="fas fa-network-wired" style="color:var(--neon-blue)"></i> LevoWeb
+            <div class="nav-header">
+                <i class="fas fa-boxes-stacked"></i> LevoWeb
             </div>
-            <nav class="nav-menu">
-                <!-- Dashboard -->
-                <a href="#" class="nav-item nav-link active" data-module="dashboard">
-                    <i class="fas fa-home"></i> Dashboard
+            <nav class="nav-links">
+                <a href="#" class="nav-item active" onclick="showView('dashboard')">
+                    <i class="fas fa-grid-2"></i> Dashboard
                 </a>
 
-                <!-- PRODUCOS GROUP -->
-                <div class="nav-group">
-                    <div class="nav-group-header">
-                        <span><i class="fas fa-box"></i> Productos</span>
-                        <i class="fas fa-chevron-right" style="font-size:0.8rem; transition:0.3s"></i>
-                    </div>
-                    <div class="nav-group-content">
-                        <a href="#" class="nav-item nav-link" data-module="prod-solicitudes"><i
-                                class="fas fa-file-invoice" style="font-size:0.9rem"></i> Solicitudes (Ventas)</a>
-                        <a href="#" class="nav-item nav-link" data-module="prod-envasados"><i class="fas fa-box-open"
-                                style="font-size:0.9rem"></i> Envasados</a>
-                        <a href="#" class="nav-item nav-link" data-module="prod-ajustes"><i class="fas fa-sliders-h"
-                                style="font-size:0.9rem"></i> Ajustes</a>
-                        <a href="#" class="nav-item nav-link" data-module="prod-auditorias"><i
-                                class="fas fa-clipboard-check" style="font-size:0.9rem"></i> Auditorías</a>
-                    </div>
-                </div>
+                <div class="section-header" style="padding: 0 20px;">Operaciones</div>
 
-                <!-- MOVIMIENTOS GROUP -->
-                <div class="nav-group">
-                    <div class="nav-group-header">
-                        <span><i class="fas fa-truck"></i> Movimientos</span>
-                        <i class="fas fa-chevron-right" style="font-size:0.8rem; transition:0.3s"></i>
-                    </div>
-                    <div class="nav-group-content">
-                        <a href="#" class="nav-item nav-link" data-module="mov-guias"><i class="fas fa-file-alt"
-                                style="font-size:0.9rem"></i> Guías</a>
-                        <a href="#" class="nav-item nav-link" data-module="mov-preingresos"><i class="fas fa-dolly"
-                                style="font-size:0.9rem"></i> Preingresos</a>
-                    </div>
-                </div>
+                <a href="#" class="nav-item" onclick="showView('warehouse')">
+                    <i class="fas fa-warehouse"></i> Almacén
+                </a>
+                <a href="#" class="nav-item" onclick="showView('movements')">
+                    <i class="fas fa-truck-fast"></i> Movimientos
+                </a>
+                <a href="#" class="nav-item" onclick="showView('purchases')">
+                    <i class="fas fa-cart-shopping"></i> Compras
+                </a>
 
-                <!-- ENTITIES -->
-                <a href="#" class="nav-item nav-link" data-module="usuarios"><i class="fas fa-users"></i> Usuarios</a>
-                <a href="#" class="nav-item nav-link" data-module="compras"><i class="fas fa-shopping-bag"></i> Compras
-                    y Costos</a>
-                <a href="#" class="nav-item nav-link" data-module="settings"><i class="fas fa-cog"></i>
-                    Configuración</a>
+                <div class="section-header" style="padding: 0 20px;">Sistema</div>
+
+                <a href="#" class="nav-item" onclick="showView('users')">
+                    <i class="fas fa-users"></i> Usuarios
+                </a>
+                <a href="#" class="nav-item" onclick="logout()">
+                    <i class="fas fa-power-off"></i> Salir
+                </a>
             </nav>
-
-            <div class="user-profile">
-                <div class="avatar">L</div>
-                <div class="info">
-                    <span class="name">Levo</span>
-                    <span class="role">Administrador</span>
-                </div>
-                <button id="btn-logout" title="Cerrar Sesión"><i class="fas fa-sign-out-alt"></i></button>
-            </div>
         </aside>
 
         <!-- MAIN CONTENT -->
         <main class="main-content">
             <header class="top-bar">
-                <h1 id="page-title">Dashboard</h1>
-                <div class="actions">
-                    <div class="date-display" id="date-display" style="color:var(--text-muted); font-size:0.9rem;">
-                        --/--/--</div>
+                <div id="current-page-title" class="page-title">Command Center</div>
+                <div class="user-status" style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:12px; color:var(--text-secondary);">Online</span>
+                    <div style="width:8px; height:8px; background:var(--success); border-radius:50%;"></div>
                 </div>
             </header>
 
-            <div id="module-content" class="content-wrapper">
-                <!-- DYNAMIC CONTENT GOES HERE -->
+            <!-- VIEW: DASHBOARD -->
+            <div id="view-dashboard" class="view-section">
+                <!-- Status Grid -->
+                <div class="dashboard-grid">
+                    <!-- Quick Action 1 -->
+                    <div class="action-card" onclick="alert('Conectando con Warehouse...')">
+                        <div class="card-status"></div>
+                        <div class="card-icon"><i class="fas fa-sync"></i></div>
+                        <div class="card-title">Sincronización Total</div>
+                        <div class="card-desc">Actualizar inventarios y órdenes remotas.</div>
+                    </div>
+
+                    <!-- Quick Action 2 -->
+                    <div class="action-card" onclick="showView('warehouse')">
+                        <div class="card-icon"><i class="fas fa-box-open"></i></div>
+                        <div class="card-title">Stock Crítico</div>
+                        <div class="card-desc">4 ítems requieren atención inmediata.</div>
+                    </div>
+
+                    <!-- Quick Action 3 -->
+                    <div class="action-card">
+                        <div class="card-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="card-title">Resumen Financiero</div>
+                        <div class="card-desc">Ver flujo de caja del mes actual.</div>
+                    </div>
+                </div>
+
+                <div class="section-header">ACCIONES RÁPIDAS</div>
+
+                <div class="dashboard-grid">
+                    <div class="action-card" style="flex-direction:row; align-items:center;">
+                        <div class="card-icon"><i class="fas fa-plus"></i></div>
+                        <div>
+                            <div class="card-title">Nueva Compra</div>
+                        </div>
+                    </div>
+                    <div class="action-card" style="flex-direction:row; align-items:center;">
+                        <div class="card-icon"><i class="fas fa-file-invoice"></i></div>
+                        <div>
+                            <div class="card-title">Crear Solicitud</div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <!-- VIEW: OTHERS (Placeholder) -->
+            <div id="view-warehouse" class="view-section hidden">
+                <h1>Gestión de Almacén</h1>
+                <p>Módulo en construcción...</p>
+            </div>
+            <div id="view-movements" class="view-section hidden">
+                <h1>Movimientos de Guías</h1>
+                <p>Módulo en construcción...</p>
+            </div>
+
         </main>
+
+        <!-- MOBILE BOTTOM NAV -->
+        <nav class="bottom-nav">
+            <a href="#" class="bottom-nav-item active" onclick="showView('dashboard')">
+                <i class="fas fa-home"></i> <span>Inicio</span>
+            </a>
+            <a href="#" class="bottom-nav-item" onclick="showView('warehouse')">
+                <i class="fas fa-box"></i> <span>Stock</span>
+            </a>
+            <a href="#" class="bottom-nav-item" onclick="showView('movements')">
+                <i class="fas fa-truck"></i> <span>Movs</span>
+            </a>
+            <a href="#" class="bottom-nav-item" onclick="alert('Abriendo buscador...')">
+                <i class="fas fa-search"></i> <span>Buscar</span>
+            </a>
+        </nav>
 
     </div>
 
-    <!-- SheetJS -->
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- Scripts -->
     <script src="app.js"></script>
-    <script>
-        function updateDate() {
-            const d = new Date();
-            if (document.getElementById('date-display'))
-                document.getElementById('date-display').innerText = d.toLocaleDateString('es-PE', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-        }
-        setInterval(updateDate, 60000);
-        updateDate();
-    </script>
 </body>
 
 </html>

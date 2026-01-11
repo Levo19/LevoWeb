@@ -208,6 +208,13 @@
             <div id="view-movements" class="view-section hidden">
                 <h1>Control Logístico</h1>
 
+                <div class="search-bar" style="margin-bottom:15px; display:flex; gap:10px;">
+                    <i class="fas fa-search" style="position:absolute; margin:12px; color:var(--text-muted);"></i>
+                    <input type="text" id="logistics-search" onkeyup="filterLogistics()"
+                        placeholder="Buscar por guía, proveedor o usuario..."
+                        style="width:100%; padding:10px 10px 10px 35px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); color:var(--text-main);">
+                </div>
+
                 <!-- TABS -->
                 <div class="tabs">
                     <div class="tab active" onclick="switchLogisticsTab('preingresos')">Pre-ingresos (Recepción)</div>

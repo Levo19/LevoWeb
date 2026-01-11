@@ -749,7 +749,8 @@ window.openIncidentResolve = async function (item, idGuia) {
             </p>
             
             <label style="font-size:12px;">Producto Real (Catálogo)</label>
-            <input list="prod-list" id="inc-new-code" class="input-field" placeholder="Buscar código o nombre...">
+            <!-- Pre-fill with old barcode as requested -->
+            <input list="prod-list" id="inc-new-code" class="input-field" placeholder="Buscar código o nombre..." value="${item.CodigoBarra || ''}">
             <datalist id="prod-list">${options}</datalist>
             
             <label style="font-size:12px;">Cantidad Real</label>

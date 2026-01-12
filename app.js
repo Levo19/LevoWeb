@@ -378,13 +378,25 @@ window.switchLogisticsTab = function (tabName) {
 }
 
 async function loadLogistics() {
-    // Parallel Fetch (Including Products now for Preload)
+    // Parallel Fetch: Preingresos, Guias, Products (Catalog), AND ALL DETAILS (Instant Load)
     try {
         const p1 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getPreingresos' }) }).then(r => r.json());
         const p2 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getGuias' }) }).then(r => r.json());
-        const p3 = !window.PRODUCT_CATALOG_CACHE ? fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getProducts' }) }).then(r => r.json()) : Promise.resolve({ success: true, data: window.PRODUCT_CATALOG_CACHE });
+        const p3 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getProducts' }) }).then(r => r.json());
+        const p4 = fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getAllGuiaDetails' }) }).then(r => r.json());
 
-        const [resPre, resGuias, resProd] = await Promise.all([p1, p2, p3]);
+        const [resPre, resGuias, resProd, resDet] = await Promise.all([p1, p2, p3, p4]);
+
+        if (resProd.success && resProd.data) {
+            LOGISTICS_CACHE.products = resProd.data;
+            // Build Datalist
+            const datalist = document.getElementById('product-list-cache'); // We need to create this in HTML or just use logic
+            // ... (handled in UI) ...
+        }
+
+        if (resDet.success && resDet.data) {
+            LOGISTICS_CACHE.detailsMap = resDet.data; // Store ALL details mapped by ID
+        }
 
         if (resPre.success) {
             LOGISTICS_CACHE.preingresos = resPre.data;
@@ -393,10 +405,6 @@ async function loadLogistics() {
         if (resGuias.success) {
             LOGISTICS_CACHE.guias = resGuias.data;
             renderGuias(resGuias.data);
-        }
-        if (resProd.success && resProd.data) {
-            window.PRODUCT_CATALOG_CACHE = resProd.data;
-            // Build simple name map for fast lookup if needed elsewhere
         }
     } catch (e) {
         console.error("Logistics Error", e);
@@ -490,9 +498,14 @@ window.filterLogistics = function () {
     renderGuias(filteredGuias);
 }
 
+const flipCard = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('flipped');
+};
+
 function renderGuias(data) {
     const container = document.getElementById('guias-container');
-    if (!container) return; // Matches HTML update
+    if (!container) return;
     container.innerHTML = '';
 
     // Group By Date
@@ -510,78 +523,81 @@ function renderGuias(data) {
     });
 
     sortedDates.forEach(dateKey => {
-        // Group Header
         const header = document.createElement('div');
         header.className = 'logistics-group-header';
         header.innerHTML = `<span><i class="far fa-calendar-alt"></i> ${dateKey}</span>`;
         container.appendChild(header);
 
         groups[dateKey].forEach(g => {
-            let timeStr = '';
-            try { timeStr = new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { }
             const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
-
-            // ALERT LOGIC
-            const card = document.createElement('div');
-            card.className = `guia-card ${g.hasIncidents ? 'has-incident' : ''}`;
-
-            // Image Logic (Comprobante)
-            let imgHtml = `<div class="guia-no-img"><i class="fas fa-file-invoice"></i></div>`;
-            if (g.foto) {
-                const url = fixDriveLink(g.foto);
-                imgHtml = `<img src="${url}" class="guia-img" onclick="event.stopPropagation(); window.open('${url}','_blank')">`;
-            }
-
-            // Evidence Link (Pre-ingreso)
-            let evidenceBtn = '';
-            if (g.idPreingreso) {
-                evidenceBtn = `<div class="evidence-link" onclick="event.stopPropagation(); openLinkedEvidence('${g.idPreingreso}')">
-                    <i class="fas fa-camera"></i> Ver Respaldo
-                </div>`;
-            }
+            const colorClass = isIngreso ? 'guia-type-ingreso' : 'guia-type-salida';
+            const neonColor = isIngreso ? 'neon-text-blue' : 'neon-text-orange';
+            const btnClass = isIngreso ? 'btn-neon-blue' : 'btn-neon-ghost';
+            const uniqueId = 'card-' + g.idGuia;
 
             // Incident Badge
             let incidentBadge = '';
-            if (g.hasIncidents) {
-                incidentBadge = `<div class="alert-pulse"><i class="fas fa-exclamation-circle"></i> ${g.incidents ? g.incidents.length : ''} INCIDENCIAS</div>`;
+            if (g.hasIncidents) incidentBadge = `<div class="alert-neon"><i class="fas fa-bolt"></i> ${g.incidents ? g.incidents.length : ''} ALERTAS</div>`;
+
+            // Image
+            let imgHtml = `<div class="guia-no-img"><i class="fas fa-cube"></i></div>`;
+            if (g.foto) imgHtml = `<img src="${fixDriveLink(g.foto)}" class="guia-img-thumb">`;
+
+            // Connection to Preingreso
+            let preingresoComment = 'No vinculado';
+            let linkedPreId = '';
+            if (g.idPreingreso) {
+                const foundPre = LOGISTICS_CACHE.preingresos ? LOGISTICS_CACHE.preingresos.find(p => String(p.idPreingreso) === String(g.idPreingreso)) : null;
+                if (foundPre) preingresoComment = foundPre.comentario || 'Sin comentario';
+                linkedPreId = g.idPreingreso;
             }
 
-            // Status Color
-            const statusColor = (g.estado || '').toUpperCase() === 'COMPLETADO' ? 'status-success' : 'status-pending';
-
-            card.innerHTML = `
-                <div class="guia-img-section" title="Ver Comprobante">
-                    ${imgHtml}
-                </div>
-                <div class="guia-content" onclick="openGuiaDetails('${g.idGuia}')">
-                    <div class="guia-header">
-                        <div class="guia-prov">
-                            ${g.proveedor || g.usuario || 'Proveedor'}
-                            ${evidenceBtn}
+            const cardContainer = document.createElement('div');
+            cardContainer.className = 'guia-card-container';
+            cardContainer.innerHTML = `
+                <div class="guia-card ${colorClass}" id="${uniqueId}">
+                    <!-- FRONT -->
+                    <div class="guia-face guia-front">
+                        <button class="flip-toggle-btn" onclick="flipCard('${uniqueId}')"><i class="fas fa-sync-alt"></i></button>
+                        <div class="guia-img-col">${imgHtml}</div>
+                        <div class="guia-info-col">
+                            <div>
+                                <h4 class="${neonColor}" style="margin:0; font-size:16px;">${g.proveedor || g.usuario}</h4>
+                                <div style="font-size:11px; opacity:0.7; margin-bottom:5px;">${g.tipo} | ${new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                ${incidentBadge}
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                                <span class="status-badge-pill status-${g.estado === 'COMPLETADO' ? 'success' : 'pending'}">${g.estado}</span>
+                                <button class="${btnClass} btn-neon-round" onclick="event.stopPropagation(); openGuiaDetails('${g.idGuia}')">
+                                    DETALLES <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
                         </div>
-                        ${incidentBadge}
                     </div>
                     
-                    <div class="guia-meta-row">
-                         <div class="guia-meta-item"><i class="far fa-clock"></i> ${new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                         <div class="guia-meta-item" style="font-family:monospace; opacity:0.7;">#${g.idGuia.substring(0, 8)}</div>
-                         <div class="guia-meta-item">${g.tipo || 'MOVIMIENTO'}</div>
-                    </div>
-                    
-                    <div class="guia-footer">
-                        <span class="status-badge-pill ${statusColor}">${g.estado}</span>
-                        <div class="guia-actions">
-                             <button class="btn-icon-small" onclick="event.stopPropagation(); printTicket('GUIA', '${g.idGuia}')" title="Imprimir Ticket">
-                                 <i class="fas fa-print"></i>
-                             </button>
-                             <button class="btn-primary" style="padding:4px 10px; font-size:11px;">
-                                 Ver Detalles <i class="fas fa-chevron-right"></i>
-                             </button>
-                        </div>
+                    <!-- BACK -->
+                    <div class="guia-face guia-back">
+                         <button class="flip-toggle-btn" onclick="flipCard('${uniqueId}')"><i class="fas fa-undo"></i></button>
+                         <div>
+                             <h5 style="color:white; margin:0 0 10px 0;">Notas y Conexiones</h5>
+                             <div class="guia-comment-box">
+                                 <span class="guia-comment-label">COMENTARIO DE GUÍA (INGRESO)</span>
+                                 ${g.comentario || 'Sin comentarios'}
+                             </div>
+                             <div class="guia-comment-box">
+                                 <span class="guia-comment-label">COMENTARIO DE PRE-INGRESO (RESPALDO)</span>
+                                 ${preingresoComment}
+                             </div>
+                         </div>
+                         <div style="display:flex; gap:10px; justify-content:center;">
+                             ${linkedPreId ? `<button class="btn-neon-ghost btn-neon-round" onclick="openLinkedEvidence('${linkedPreId}')"><i class="fas fa-camera"></i> FOTOS</button>` : ''}
+                             <button class="btn-neon-ghost btn-neon-round" onclick="printTicket('GUIA', '${g.idGuia}')"><i class="fas fa-print"></i> TICKET</button>
+                             <button class="btn-neon-ghost btn-neon-round" onclick="copyToClipboard('${g.idGuia}')"><i class="far fa-copy"></i> ID</button>
+                         </div>
                     </div>
                 </div>
             `;
-            container.appendChild(card);
+            container.appendChild(cardContainer);
         });
     });
 }
@@ -616,48 +632,36 @@ window.openGuiaDetails = async function (idGuia) {
     const prodsContainer = document.getElementById('guia-details-body');
     const incidentContainer = document.getElementById('guia-new-body');
 
-    // 2. USE PRELOADED INCIDENTS IF AVAILABLE
+    // 2. CHECK CACHE (INCIDENTS & STANDARD DETAILS)
     incidentContainer.innerHTML = '';
+    prodsContainer.innerHTML = '';
 
-    let hasPreloadedIncidents = false;
-    // Check if we passed a full Guia object stored in cache or logic
-    // We need to find the Guia object from cache to get incidents
     const cachedGuia = LOGISTICS_CACHE.guias.find(g => String(g.idGuia) === String(idGuia));
+    const cachedDetails = LOGISTICS_CACHE.detailsMap ? LOGISTICS_CACHE.detailsMap[String(idGuia).trim()] : null;
 
+    // A) Incidents (Instant)
     if (cachedGuia && cachedGuia.incidents && cachedGuia.incidents.length > 0) {
-        hasPreloadedIncidents = true;
-        renderIncidentsList(cachedGuia.incidents, incidentContainer, idGuia); // Pass idGuia
+        renderIncidentsList(cachedGuia.incidents, incidentContainer, idGuia);
     } else {
-        incidentContainer.innerHTML = '<div style="padding:10px; color:var(--text-muted);">Sin incidencias pendientes</div>';
+        incidentContainer.innerHTML = '<div style="padding:10px; color:var(--text-muted);">Sin incidencias</div>';
     }
 
-    // 3. FETCH FULL DETAILS (Standard Items)
-    // We still fetch details for the main list, but Incidents are instant now.
-    prodsContainer.innerHTML = '<div class="text-center p-3"><div class="spinner"></div> Cargando detalles...</div>';
-
-    try {
-        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getGuiaDetails', payload: { idGuia } }) }).then(r => r.json());
-
-        if (res.success) {
-            // Render Verified Products
-            if (res.details && res.details.length > 0) {
-                prodsContainer.innerHTML = '';
-                renderDetailsList(res.details, prodsContainer);
-            } else {
-                prodsContainer.innerHTML = '<div style="padding:10px; color:var(--text-muted); text-align:center;">No hay productos registrados aún.</div>';
-            }
-
-            // If Backend returns incidents again, update? 
-            // The Preload is faster, but this might be fresher.
-            // Let's stick to Preload for speed unless empty.
-            if (!hasPreloadedIncidents && res.newProducts && res.newProducts.length > 0) {
-                renderIncidentsList(res.newProducts, incidentContainer, idGuia); // Pass idGuia
-            }
+    // B) Standard Details (Instant - Preloaded)
+    if (cachedDetails && cachedDetails.length > 0) {
+        renderDetailsList(cachedDetails, prodsContainer);
+    } else {
+        // Fallback or Empty
+        if (cachedDetails && cachedDetails.length === 0) {
+            prodsContainer.innerHTML = '<div style="padding:10px; color:var(--text-muted); text-align:center;">No hay productos registrados.</div>';
         } else {
-            prodsContainer.innerHTML = `<div class="text-danger">Error: ${res.error}</div>`;
+            // Not in cache? Fetch. (Should be rare)
+            prodsContainer.innerHTML = '<div class="spinner"></div>';
+            fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getGuiaDetails', payload: { idGuia } }) })
+                .then(r => r.json()).then(res => {
+                    if (res.details && res.details.length > 0) renderDetailsList(res.details, prodsContainer);
+                    else prodsContainer.innerHTML = 'Sin detalles';
+                });
         }
-    } catch (e) {
-        prodsContainer.innerHTML = `<div class="text-danger">Error de conexión</div>`;
     }
 };
 
@@ -956,9 +960,80 @@ window.submitIncidentResolve = async function () {
         btn.disabled = false;
     }
 }
-window.openEditPreingreso = function (item) {
-    // Placeholder for now
-    alert("Edición rápida: " + item.proveedor);
+// EDIT PRE-INGRESO (Real Modal)
+window.openEditPreingreso = function (idPre) {
+    const item = LOGISTICS_CACHE.preingresos.find(p => String(p.idPreingreso) === String(idPre));
+    if (!item) return alert("Error: No encontrado");
+
+    // Modal HTML
+    let modal = document.getElementById('edit-pre-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'edit-pre-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-card">
+                <h3>Editar Pre-Ingreso</h3>
+                <input type="hidden" id="edit-pre-id">
+                
+                <label>Proveedor / Origen</label>
+                <input type="text" id="edit-pre-prov" class="input-field">
+                
+                <label>Comentario / Detalle</label>
+                <textarea id="edit-pre-comm" class="input-field" rows="3"></textarea>
+                
+                <label>Monto Referencial</label>
+                <input type="number" id="edit-pre-monto" class="input-field">
+                
+                <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                     <button class="btn button-secondary" onclick="closeModal('edit-pre-modal')">Cancelar</button>
+                     <button class="btn button-primary" onclick="submitEditPreingreso()">Guardar Cambios</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Fill Data
+    document.getElementById('edit-pre-id').value = item.idPreingreso;
+    document.getElementById('edit-pre-prov').value = item.proveedor || '';
+    document.getElementById('edit-pre-comm').value = item.comentario || '';
+    document.getElementById('edit-pre-monto').value = item.monto || '';
+
+    modal.classList.add('open');
+}
+
+window.submitEditPreingreso = async function () {
+    const id = document.getElementById('edit-pre-id').value;
+    const prov = document.getElementById('edit-pre-prov').value;
+    const comm = document.getElementById('edit-pre-comm').value;
+    const mont = document.getElementById('edit-pre-monto').value;
+
+    const btn = document.querySelector('#edit-pre-modal .button-primary');
+    btn.innerText = "Guardando...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'updatePreingreso',
+                payload: { idPreingreso: id, proveedor: prov, comentario: comm, monto: mont }
+            })
+        }).then(r => r.json());
+
+        if (res.success) {
+            alert("Actualizado correctamente.");
+            closeModal('edit-pre-modal');
+            loadLogistics(); // Refresh UI
+        } else {
+            alert("Error: " + res.error);
+        }
+    } catch (e) { alert("Error de conexión"); }
+    finally {
+        btn.innerText = "Guardar Cambios";
+        btn.disabled = false;
+    }
 }
 async function loadWarehouseData() {
     const container = document.getElementById('view-warehouse');

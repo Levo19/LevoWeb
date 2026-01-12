@@ -498,6 +498,137 @@ window.filterLogistics = function () {
     renderGuias(filteredGuias);
 }
 
+// --- PRE-INGRESOS SQUARE FLIP (CAROUSEL) ---
+window.togglePreCard = function (id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('flipped');
+};
+
+window.nextPreImage = function (id, direction) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    const imgs = card.querySelectorAll('.pre-carousel-img');
+    if (imgs.length < 2) return;
+
+    let activeIdx = 0;
+    imgs.forEach((img, i) => { if (img.classList.contains('active')) activeIdx = i; });
+
+    imgs[activeIdx].classList.remove('active');
+    let newIdx = activeIdx + direction;
+    if (newIdx >= imgs.length) newIdx = 0;
+    if (newIdx < 0) newIdx = imgs.length - 1;
+    imgs[newIdx].classList.add('active');
+    event.stopPropagation(); // Prevent flip
+};
+
+window.expandPreImage = function (id) {
+    const card = document.getElementById(id);
+    const activeImg = card.querySelector('.pre-carousel-img.active');
+    if (activeImg) {
+        let lightbox = document.getElementById('lightbox');
+        if (!lightbox) {
+            lightbox = document.createElement('div');
+            lightbox.id = 'lightbox';
+            lightbox.innerHTML = '<span id="lightbox-close" onclick="this.parentElement.style.display=\'none\'">&times;</span><img id="lightbox-img">';
+            document.body.appendChild(lightbox);
+        }
+        document.getElementById('lightbox-img').src = activeImg.src;
+        lightbox.style.display = 'flex';
+    }
+    event.stopPropagation();
+};
+
+function renderPreingresos(data) {
+    const container = document.getElementById('preingresos-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Group By Date
+    const groups = {};
+    data.forEach(g => {
+        let d = 'Sin Fecha';
+        try { d = new Date(g.fecha).toLocaleDateString(); } catch (e) { }
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(g);
+    });
+
+    // Sort groups DESC
+    const sortedDates = Object.keys(groups).sort((a, b) => {
+        return new Date(groups[b][0].fecha) - new Date(groups[a][0].fecha);
+    });
+
+    sortedDates.forEach(dateKey => {
+        const header = document.createElement('div');
+        header.className = 'logistics-group-header';
+        header.innerHTML = `<span><i class="far fa-clock"></i> ${dateKey}</span>`;
+        container.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'preingreso-grid';
+
+        groups[dateKey].forEach(p => {
+            const uniqueId = 'pre-' + p.idPreingreso;
+
+            // Image Logic (Carousel)
+            // Handle 'fotos' string (comma separated or single)
+            let imgs = [];
+            if (p.fotos) {
+                if (p.fotos.includes(',')) imgs = p.fotos.split(',');
+                else imgs = [p.fotos];
+            }
+
+            let carouselHtml = '';
+            if (imgs.length === 0) {
+                carouselHtml = `<div class="guia-no-img" style="background:#111;"><i class="fas fa-box-open" style="font-size:40px; color:#333;"></i></div>`;
+            } else {
+                imgs.forEach((url, i) => {
+                    carouselHtml += `<img src="${fixDriveLink(url)}" class="pre-carousel-img ${i === 0 ? 'active' : ''}">`;
+                });
+                if (imgs.length > 1) {
+                    carouselHtml += `
+                        <button class="carousel-ctrl carousel-prev" onclick="nextPreImage('${uniqueId}', -1)"><i class="fas fa-chevron-left"></i></button>
+                        <button class="carousel-ctrl carousel-next" onclick="nextPreImage('${uniqueId}', 1)"><i class="fas fa-chevron-right"></i></button>
+                     `;
+                }
+                carouselHtml += `<button class="expand-btn" onclick="expandPreImage('${uniqueId}')"><i class="fas fa-expand"></i></button>`;
+            }
+
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'pre-card-wrapper';
+            cardWrapper.innerHTML = `
+                <div class="pre-card" id="${uniqueId}" onclick="togglePreCard('${uniqueId}')">
+                    <!-- FRONT -->
+                    <div class="pre-face pre-front">
+                        <div class="pre-header">
+                            <div class="pre-prov">${p.proveedor}</div>
+                            <div class="pre-time">${new Date(p.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div class="pre-carousel">
+                            ${carouselHtml}
+                        </div>
+                        <div class="pre-footer">
+                            <div class="pre-comment">"${p.comentario || 'Sin comentario'}"</div>
+                            <span class="pre-badge">${p.estado || 'PENDIENTE'}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- BACK -->
+                    <div class="pre-face pre-back">
+                        <button class="action-btn-large" onclick="event.stopPropagation(); printTicket('PRE', '${p.idPreingreso}')">
+                            <i class="fas fa-print"></i> <span>Ticket</span>
+                        </button>
+                        <button class="action-btn-large" onclick="event.stopPropagation(); openEditPreingreso('${p.idPreingreso}')">
+                            <i class="fas fa-pen"></i> <span>Editar</span>
+                        </button>
+                    </div>
+                </div>
+             `;
+            grid.appendChild(cardWrapper);
+        });
+        container.appendChild(grid);
+    });
+}
+
 function renderGuias(data) {
     const container = document.getElementById('guias-container');
     if (!container) return;

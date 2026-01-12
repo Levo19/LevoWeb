@@ -498,11 +498,6 @@ window.filterLogistics = function () {
     renderGuias(filteredGuias);
 }
 
-const flipCard = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('flipped');
-};
-
 function renderGuias(data) {
     const container = document.getElementById('guias-container');
     if (!container) return;
@@ -589,7 +584,7 @@ function renderGuias(data) {
                                  ${preingresoComment}
                              </div>
                          </div>
-                         <div style="display:flex; gap:10px; justify-content:center;">
+                         <div style="display:flex; gap:10px; justify:center;">
                              ${linkedPreId ? `<button class="btn-neon-ghost btn-neon-round" onclick="openLinkedEvidence('${linkedPreId}')"><i class="fas fa-camera"></i> FOTOS</button>` : ''}
                              <button class="btn-neon-ghost btn-neon-round" onclick="printTicket('GUIA', '${g.idGuia}')"><i class="fas fa-print"></i> TICKET</button>
                              <button class="btn-neon-ghost btn-neon-round" onclick="copyToClipboard('${g.idGuia}')"><i class="far fa-copy"></i> ID</button>
@@ -726,105 +721,16 @@ function renderDetailsList(list, container) {
 
 
 // --- TICKET PRINTING SYSTEM ---
-window.printTicket = async function (type, id) {
-    // 1. Fetch Details if needed
-    let content = '';
-    const date = new Date().toLocaleString();
+window.copyToClipboard = function (text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert("ID Copiado: " + text);
+    }).catch(err => console.error('Error copying:', err));
+};
 
-    if (type === 'GUIA') {
-        const g = LOGISTICS_CACHE.guias.find(x => x.idGuia === id);
-        if (!g) return;
-
-        // Fetch details synchronously-ish for printing
-        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getGuiaDetails', payload: { idGuia: id } }) }).then(r => r.json());
-        if (!res.success) return alert("Error cargando datos para imprimir");
-
-        let itemsHtml = '';
-        res.details.forEach(d => {
-            const name = d.productName || d.codigoProducto;
-            itemsHtml += `<tr><td>${name}</td><td align="right">${d.cantidad}</td></tr>`;
-        });
-
-        // Filter out processed incidents for ticket?? User said "sombra".
-        // Maybe ticket should only show active ones?
-        // User said: "al procesarse debe agregarse una nueva fila a la guia detalle...".
-        // So the new valid item will appear in 'itemsHtml' (details) if we reload.
-        // The old incident shouldn't appear in the ticket or should appear as reference?
-        // Let's hide PROCESADO ones from Ticket for clarity.
-        const activeNew = res.newProducts.filter(n => n.Estado !== 'PROCESADO');
-        activeNew.forEach(n => itemsHtml += `<tr><td>${n.DescripcionProducto} (N)</td><td align="right">${n.Cantidad}</td></tr>`);
-
-        content = `
-            <div class="ticket">
-                <div class="header">
-                    <h2>LevoWeb</h2>
-                    <p>GUIA DE REMISIÓN</p>
-                    <p>ID: ${id.substring(0, 8)}</p>
-                    <p>${date}</p>
-                </div>
-                <div class="info">
-                    <p><b>Tipo:</b> ${g.tipo}</p>
-                    <p><b>Prov/User:</b> ${g.proveedor || g.usuario}</p>
-                    <p><b>Estado:</b> ${g.estado}</p>
-                </div>
-                <hr>
-                <table>
-                    <thead><tr><th align="left">Desc</th><th align="right">Cant</th></tr></thead>
-                    <tbody>${itemsHtml}</tbody>
-                </table>
-                <hr>
-                <div style="text-align:center; margin-top:10px;">
-                    <p>Gracias por su operación</p>
-                </div>
-            </div>
-        `;
-    }
-
-    if (type === 'PRE') {
-        const p = LOGISTICS_CACHE.preingresos.find(x => x.idPreingreso === id);
-        if (!p) return;
-        content = `
-            <div class="ticket">
-                <div class="header">
-                     <h2>LevoWeb</h2>
-                    <p>CONSTANCIA DE RECEPCIÓN</p>
-                    <p>${date}</p>
-                </div>
-                <div class="info">
-                    <p><b>Proveedor:</b> ${p.proveedor}</p>
-                    <p><b>Monto:</b> ${p.monto}</p>
-                    <p><b>Nota:</b> ${p.comentario}</p>
-                </div>
-                <hr>
-                <p>Referencia: ${p.idPreingreso}</p>
-            </div>
-        `;
-    }
-
-    // Open Print Window
-    const win = window.open('', '', 'width=400,height=600');
-    win.document.write(`
-        <html>
-        <head>
-            <style>
-                @page { size: 80mm auto; margin: 0; }
-                body { font-family: 'Courier New', monospace; width: 78mm; margin: 0 auto; color: black; background:white;}
-                .ticket { padding: 10px; }
-                .header { text-align: center; margin-bottom: 10px; }
-                h2 { margin: 0; font-size: 16px; }
-                p { margin: 2px 0; font-size: 12px; }
-                table { width: 100%; font-size: 12px; border-collapse: collapse; }
-                hr { border: 0.5px dashed #000; }
-                .info { margin-bottom: 10px; }
-            </style>
-        </head>
-        <body onload="window.print(); window.close();">
-            ${content}
-        </body>
-        </html>
-    `);
-    win.document.close();
-}
+window.printTicket = function (type, id) {
+    // Placeholder for ticket printing
+    alert(`Imprimiendo Ticket ${type}: ${id} (Simulación)`);
+};
 
 window.openIncidentResolve = async function (item, idGuia) {
     // Simple Prompt UI for now (User asked for "better design" later, but logic first)

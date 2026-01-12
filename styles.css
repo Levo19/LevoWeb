@@ -194,6 +194,13 @@ body {
 }
 
 /* --- 3D NEON FLIP CARDS --- */
+.logistics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 10px 0;
+}
+
 .guia-card-container {
     perspective: 1000px;
     margin-bottom: 20px;
@@ -249,6 +256,17 @@ body {
 .guia-type-salida:hover .guia-face {
     box-shadow: 0 0 25px rgba(255, 165, 0, 0.3);
     border-color: rgba(255, 165, 0, 0.8);
+}
+
+/* PRE-INGRESO PURPLE THEME */
+.guia-type-preingreso .guia-face {
+    box-shadow: 0 0 15px rgba(160, 32, 240, 0.1), inset 0 0 20px rgba(160, 32, 240, 0.02);
+    border: 1px solid rgba(160, 32, 240, 0.3);
+}
+
+.guia-type-preingreso:hover .guia-face {
+    box-shadow: 0 0 25px rgba(160, 32, 240, 0.3);
+    border-color: rgba(160, 32, 240, 0.8);
 }
 
 /* FRONT FACE LAYOUT */

@@ -412,68 +412,146 @@ async function loadLogistics() {
 }
 
 // --- PRE-INGRESOS ENHANCED (GROUPED) ---
+// --- PRE-INGRESOS SQUARE FLIP (CAROUSEL) ---
+window.togglePreCard = function (id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('flipped');
+};
+
+window.nextPreImage = function (id, direction) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    const imgs = card.querySelectorAll('.pre-carousel-img');
+    if (imgs.length < 2) return;
+
+    let activeIdx = 0;
+    imgs.forEach((img, i) => { if (img.classList.contains('active')) activeIdx = i; });
+
+    imgs[activeIdx].classList.remove('active');
+    let newIdx = activeIdx + direction;
+    if (newIdx >= imgs.length) newIdx = 0;
+    if (newIdx < 0) newIdx = imgs.length - 1;
+    imgs[newIdx].classList.add('active');
+    event.stopPropagation(); // Prevent flip
+};
+
+window.expandPreImage = function (id) {
+    const card = document.getElementById(id);
+    const activeImg = card.querySelector('.pre-carousel-img.active');
+    if (activeImg) {
+        let lightbox = document.getElementById('lightbox');
+        if (!lightbox) {
+            lightbox = document.createElement('div');
+            lightbox.id = 'lightbox';
+            lightbox.innerHTML = '<span id="lightbox-close" onclick="this.parentElement.style.display=\'none\'">&times;</span><img id="lightbox-img">';
+            document.body.appendChild(lightbox);
+        }
+        document.getElementById('lightbox-img').src = activeImg.src;
+        lightbox.style.display = 'flex';
+    }
+    event.stopPropagation();
+};
+
 function renderPreingresos(data) {
-    const grid = document.getElementById('preingresos-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    // Target the correct container. Use 'preingresos-container' (consistent with Guias)
+    // If HTML has 'preingresos-grid' ID, we should probably target that or fix HTML.
+    // Let's target 'preingresos-container' and ensure HTML matches.
+    let container = document.getElementById('preingresos-container');
+    if (!container) container = document.getElementById('preingresos-grid'); // Fallback
+    if (!container) return;
 
-    // Sort
-    data.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    container.innerHTML = '';
 
-    // Group
+    // Default class for container if it's the grid wrapper 
+    // container.className = 'preingreso-grid'; 
+    // Wait, grouping requires headers. So container is wrapper, grid is child.
+
+    // Group By Date
     const groups = {};
-    data.forEach(item => {
+    data.forEach(g => {
         let d = 'Sin Fecha';
-        try { d = new Date(item.fecha).toLocaleDateString(); } catch (e) { }
+        try { d = new Date(g.fecha).toLocaleDateString(); } catch (e) { }
         if (!groups[d]) groups[d] = [];
-        groups[d].push(item);
+        groups[d].push(g);
     });
 
-    Object.keys(groups).forEach(dateKey => {
-        // Header
+    // Sort groups DESC
+    const sortedDates = Object.keys(groups).sort((a, b) => {
+        try { return new Date(groups[b][0].fecha) - new Date(groups[a][0].fecha); } catch (e) { return 0; }
+    });
+
+    sortedDates.forEach(dateKey => {
         const header = document.createElement('div');
         header.className = 'logistics-group-header';
-        header.style.gridColumn = '1/-1'; // Span all
-        header.innerHTML = `<span><i class="far fa-calendar"></i> ${dateKey}</span> <span>${groups[dateKey].length} Items</span>`;
-        grid.appendChild(header);
+        header.innerHTML = `<span><i class="far fa-clock"></i> ${dateKey}</span>`;
+        container.appendChild(header);
 
-        groups[dateKey].forEach(item => {
-            let thumb = 'https://placehold.co/400x300?text=No+Foto';
-            let photoCount = 0;
-            let allPhotos = [];
-            try {
-                let raw = item.fotos;
-                if (raw && raw.startsWith('[')) {
-                    allPhotos = JSON.parse(raw);
-                    if (allPhotos.length > 0) { thumb = fixDriveLink(allPhotos[0]); photoCount = allPhotos.length; }
-                } else if (raw) { thumb = fixDriveLink(raw); allPhotos = [raw]; photoCount = 1; }
-            } catch (e) { }
+        const grid = document.createElement('div');
+        grid.className = 'preingreso-grid';
 
-            const card = document.createElement('div');
-            card.className = 'gallery-card';
-            card.innerHTML = `
-                <div style="position:relative;">
-                    <img src="${thumb}" class="gallery-img" onclick='openProtoGallery(${JSON.stringify(allPhotos)})'>
-                    ${photoCount > 1 ? `<span style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.7); color:white; padding:2px 6px; border-radius:10px; font-size:10px;">+${photoCount - 1}</span>` : ''}
-                </div>
-                <div class="gallery-body">
-                    <div class="gallery-title" style="display:flex; justify-content:space-between;">
-                        <span>${item.proveedor || 'Desconocido'}</span>
-                        <button class="btn-icon-small" onclick="printTicket('PRE', '${item.idPreingreso}')"><i class="fas fa-print"></i></button>
+        groups[dateKey].forEach(p => {
+            const uniqueId = 'pre-' + p.idPreingreso;
+
+            // Image Logic (Carousel)
+            let imgs = [];
+            if (p.fotos) {
+                if (p.fotos.includes(',')) imgs = p.fotos.split(',');
+                else imgs = [p.fotos];
+                // Clean JSON if needed
+                if (imgs.length == 1 && imgs[0].startsWith('[')) {
+                    try { imgs = JSON.parse(imgs[0]); } catch (e) { }
+                }
+            }
+
+            let carouselHtml = '';
+            if (imgs.length === 0) {
+                carouselHtml = `<div class="guia-no-img" style="background:#111;"><i class="fas fa-box-open" style="font-size:40px; color:#333;"></i></div>`;
+            } else {
+                imgs.forEach((url, i) => {
+                    carouselHtml += `<img src="${fixDriveLink(url)}" class="pre-carousel-img ${i === 0 ? 'active' : ''}">`;
+                });
+                if (imgs.length > 1) {
+                    carouselHtml += `
+                        <button class="carousel-ctrl carousel-prev" onclick="nextPreImage('${uniqueId}', -1)"><i class="fas fa-chevron-left"></i></button>
+                        <button class="carousel-ctrl carousel-next" onclick="nextPreImage('${uniqueId}', 1)"><i class="fas fa-chevron-right"></i></button>
+                     `;
+                }
+                carouselHtml += `<button class="expand-btn" onclick="expandPreImage('${uniqueId}')"><i class="fas fa-expand"></i></button>`;
+            }
+
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'pre-card-wrapper';
+            cardWrapper.innerHTML = `
+                <div class="pre-card" id="${uniqueId}" onclick="togglePreCard('${uniqueId}')">
+                    <!-- FRONT -->
+                    <div class="pre-face pre-front">
+                        <div class="pre-header">
+                            <div class="pre-prov">${p.proveedor}</div>
+                            <div class="pre-time">${new Date(p.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div class="pre-carousel">
+                            ${carouselHtml}
+                        </div>
+                        <div class="pre-footer">
+                            <div class="pre-comment">${p.comentario || 'Sin comentario'}</div>
+                            <span class="pre-badge">${p.estado || 'PENDIENTE'}</span>
+                        </div>
                     </div>
-                    <div class="gallery-meta">
-                        <span>${new Date(item.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        <span class="status-badge ${item.estado === 'PROCESADO' ? 'status-success' : 'status-pending'}">${item.estado}</span>
+                    
+                    <!-- BACK -->
+                    <div class="pre-face pre-back">
+                        <button class="action-btn-large" onclick="event.stopPropagation(); printTicket('PRE', '${p.idPreingreso}')">
+                            <i class="fas fa-print"></i> <span>Ticket</span>
+                        </button>
+                        <button class="action-btn-large" onclick="event.stopPropagation(); openEditPreingreso('${p.idPreingreso}')">
+                            <i class="fas fa-pen"></i> <span>Editar</span>
+                        </button>
                     </div>
-                    <!-- EDIT BUTTON -->
-                    <div style="margin-top:5px; display:flex; gap:5px;">
-                        <button class="btn-secondary-small" onclick='openEditPreingreso(${JSON.stringify(item)})' style="flex:1; font-size:11px;">Editar / Ver Detalles</button>
-                    </div>
-                    <div style="font-size:11px; margin-top:5px; color:var(--text-muted);">${item.comentario || ''}</div>
                 </div>
              `;
-            grid.appendChild(card);
+            grid.appendChild(cardWrapper);
         });
+        container.appendChild(grid);
     });
 }
 
@@ -485,16 +563,27 @@ window.openProtoGallery = function (photos) {
 // --- GUIAS ENHANCED (GROUP BY DAY & SEARCH) ---
 
 // Filter Function
-window.filterLogistics = function () {
-    const term = document.getElementById('logistics-search').value.toLowerCase();
+window.filterLogistics = function filterLogistics() {
+    // 1. Get Text Query
+    const query = document.getElementById('search-logistics').value.toLowerCase();
+    // 2. Get Date Query
+    const dateInput = document.getElementById('search-date');
+    const dateQuery = dateInput ? dateInput.value : ''; // YYYY-MM-DD
+
+    // Filter Preingresos
+    const filteredPre = LOGISTICS_CACHE.preingresos.filter(p => {
+        const txtMatch = (p.proveedor || '').toLowerCase().includes(query) || (p.comentario || '').toLowerCase().includes(query);
+        const dateMatch = !dateQuery || (p.fecha && new Date(p.fecha).toISOString().startsWith(dateQuery));
+        return txtMatch && dateMatch;
+    });
+    renderPreingresos(filteredPre);
 
     // Filter Guias
-    const filteredGuias = LOGISTICS_CACHE.guias.filter(g =>
-        (g.proveedor && g.proveedor.toLowerCase().includes(term)) ||
-        (g.usuario && g.usuario.toLowerCase().includes(term)) ||
-        (g.idGuia && g.idGuia.toLowerCase().includes(term)) ||
-        (g.fecha && g.fecha.toLowerCase().includes(term))
-    );
+    const filteredGuias = LOGISTICS_CACHE.guias.filter(g => {
+        const txtMatch = (g.proveedor || g.usuario || '').toLowerCase().includes(query) || (g.idGuia || '').toLowerCase().includes(query);
+        const dateMatch = !dateQuery || (g.fecha && new Date(g.fecha).toISOString().startsWith(dateQuery));
+        return txtMatch && dateMatch;
+    });
     renderGuias(filteredGuias);
 }
 

@@ -516,6 +516,36 @@ body {
     border-color: var(--primary);
 }
 
+.input-modern {
+    width: 100%;
+    background: var(--bg-body);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 12px 16px;
+    border: 1px solid #444;
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: 0.2s;
+}
+
+.input-modern:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.search-toolbar {
+    background: var(--bg-card);
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    border: 1px solid var(--border);
+    margin-bottom: 25px;
+    box-shadow: var(--shadow-sm);
+}
+
 .btn-primary {
     width: 100%;
     background: var(--primary);
@@ -568,7 +598,8 @@ body {
     flex: 1;
     margin-left: var(--sidebar-width);
     padding: 20px;
-    max-width: 1200px;
+    width: calc(100% - var(--sidebar-width));
+    /* Explicit width for safety */
 }
 
 .top-bar {
@@ -707,21 +738,20 @@ body {
     border-color: var(--primary);
 }
 
-/* --- PRE-INGRESO SQUARE CARDS (CAROUSEL FLIP) --- */
+/* --- PRE-INGRESO SQUARE CARDS (Fixed Size) --- */
 .preingreso-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    /* Auto-fit expands items */
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 25px;
     padding: 15px 0;
 }
 
 .pre-card-wrapper {
     width: 100%;
-    aspect-ratio: 1 / 1;
-    /* Square */
-    perspective: 1000px;
+    aspect-ratio: 4/5;
+    /* Fixed Aspect Ratio for Consistency */
     position: relative;
+    border-radius: 20px;
 }
 
 .pre-card {
@@ -730,12 +760,12 @@ body {
     position: relative;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
-    border-radius: 16px;
+    border-radius: 20px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
 }
 
 .pre-card.flipped {
-    transform: rotateY(180deg) rotateZ(0deg);
+    transform: rotateY(180deg);
 }
 
 /* rotateZ fix for anti-aliasing */
@@ -744,10 +774,10 @@ body {
     position: absolute;
     inset: 0;
     backface-visibility: hidden;
-    border-radius: 16px;
+    border-radius: 20px;
     overflow: hidden;
-    background: #1e1e24;
-    /* Dark Matte */
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
 }

@@ -670,8 +670,13 @@ function renderPreingresos(data) {
             }
 
             let carouselHtml = '';
+            // PLACEHOLDER FOR NO IMAGES
             if (imgs.length === 0) {
-                carouselHtml = `<div class="guia-no-img" style="background:#111;"><i class="fas fa-box-open" style="font-size:40px; color:#333;"></i></div>`;
+                carouselHtml = `
+                    <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#1e293b; color:#475569;">
+                        <i class="fas fa-image" style="font-size:40px; margin-bottom:10px;"></i>
+                        <span style="font-size:12px;">Sin Imagen</span>
+                    </div>`;
             } else {
                 imgs.forEach((url, i) => {
                     carouselHtml += `<img src="${fixDriveLink(url)}" class="pre-carousel-img ${i === 0 ? 'active' : ''}">`;
@@ -699,20 +704,27 @@ function renderPreingresos(data) {
                             ${carouselHtml}
                         </div>
                         <div class="pre-footer">
-                            <div class="pre-comment">${p.comentario || 'Sin comentario'}</div>
+                            <div class="pre-comment" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${p.comentario || 'Sin comentario'}"</div>
                             <span class="pre-badge">${p.estado || 'PENDIENTE'}</span>
                         </div>
                     </div>
                     
-                    <!-- BACK -->
+                    <!-- BACK (FULL INFO) -->
                     <div class="pre-face pre-back">
-                        <div style="width:100%; padding:15px; flex:1; overflow:auto;">
-                             <h4 style="color:#d050ff; margin:0 0 5px 0;">Comentario</h4>
-                             <p style="font-size:12px; color:#ddd; font-style:italic;">
+                        <div style="width:100%; padding:20px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
+                             <h4 style="color:var(--text-muted); margin:0; font-size:11px; text-transform:uppercase;">Proveedor</h4>
+                             <div style="font-size:14px; font-weight:bold; color:white;">${p.proveedor}</div>
+                             
+                             <h4 style="color:var(--text-muted); margin:5px 0 0 0; font-size:11px; text-transform:uppercase;">Monto Ref.</h4>
+                             <div style="font-size:14px; font-weight:bold; color:#4ade80;">S/ ${p.monto || '0.00'}</div>
+                             
+                             <h4 style="color:var(--text-muted); margin:5px 0 0 0; font-size:11px; text-transform:uppercase;">Comentario Completo</h4>
+                             <div style="font-size:13px; color:#e2e8f0; font-style:italic; background:rgba(255,255,255,0.05); padding:8px; border-radius:6px;">
                                 ${p.comentario || 'Sin comentario registrado.'}
-                             </p>
+                             </div>
                         </div>
-                        <div style="display:flex; width:100%; justify-content:space-around; padding:15px; border-top:1px solid rgba(160,32,240,0.3);">
+                        
+                        <div style="display:flex; width:100%; justify-content:space-around; padding:15px; border-top:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.2);">
                             <button class="action-btn-large" onclick="event.stopPropagation(); printTicket('PRE', '${p.idPreingreso}')">
                                 <i class="fas fa-print"></i> <span>Ticket</span>
                             </button>
@@ -960,8 +972,8 @@ window.copyToClipboard = function (text) {
 };
 
 window.printTicket = function (type, id) {
-    let content = '';
     const dateStr = new Date().toLocaleString();
+    let content = '';
 
     if (type === 'PRE') {
         const p = LOGISTICS_CACHE.preingresos.find(x => String(x.idPreingreso) === String(id));
@@ -970,21 +982,34 @@ window.printTicket = function (type, id) {
         content = `
             <div class="ticket">
                 <div class="header">
-                    <h3>CONSTANCIA DE RECEPCIÓN</h3>
-                    <p>${dateStr}</p>
+                    <h2>CONSTANCIA DE RECEPCIÓN</h2>
+                    <p style="margin-bottom:10px;">${dateStr}</p>
                 </div>
-                <div class="info">
-                    <p><strong>ID:</strong> ${p.idPreingreso}</p>
-                    <p><strong>Proveedor:</strong> ${p.proveedor}</p>
-                    <p><strong>Monto Ref:</strong> ${p.monto || '0.00'}</p>
+                <div class="dashed-line"></div>
+                <div class="row">
+                    <span class="label">ID:</span>
+                    <span class="value">${p.idPreingreso}</span>
                 </div>
-                <hr>
-                <div class="comment">
-                    <p><strong>Nota:</strong></p>
-                    <p>${p.comentario || '-'}</p>
+                <div class="row">
+                    <span class="label">PROVEEDOR:</span>
+                    <span class="value">${p.proveedor}</span>
                 </div>
-                <hr>
-                <p style="text-align:center; font-size:10px;">LevoWeb ERP</p>
+                <div class="row">
+                    <span class="label">MONTO REF:</span>
+                    <span class="value">S/ ${p.monto || '0.00'}</span>
+                </div>
+                <div class="dashed-line"></div>
+                <div class="section-title">NOTA / COMENTARIO:</div>
+                <div class="comment-box">
+                    ${p.comentario || 'Sin comentarios.'}
+                </div>
+                <div class="dashed-line"></div>
+                <div class="footer">
+                    <p>Recibido Conforme</p>
+                    <br><br>
+                    <div style="border-top:1px solid #000; width:60%; margin:0 auto;">Firma</div>
+                    <p style="margin-top:15px; font-size:10px;">LevoWeb ERP System</p>
+                </div>
             </div>
         `;
     } else {
@@ -993,20 +1018,33 @@ window.printTicket = function (type, id) {
         // If we want detailed Print for Guias too, we can add it here.
     }
 
-    // Print Window
-    const win = window.open('', '_blank', 'width=350,height=500');
+    // Print Window (80mm Thermal Optimized)
+    const win = window.open('', '_blank', 'width=400,height=600');
     win.document.write(`
         <html>
         <head>
             <title>Ticket ${id}</title>
             <style>
-                body { font-family: monospace; padding: 20px; text-align: left; }
-                .ticket { border: 1px solid #000; padding: 10px; }
-                .header { text-align: center; margin-bottom: 10px; }
-                h3 { margin: 0 0 5px 0; }
-                p { margin: 3px 0; font-size: 12px; }
-                hr { border: 0.5px dashed #000; margin: 10px 0; }
-                .comment { white-space: pre-wrap; }
+                @page { margin: 0; size: 80mm auto; }
+                body { 
+                    font-family: 'Courier New', monospace; 
+                    margin: 0; 
+                    padding: 10px; 
+                    width: 76mm; /* Margins safety */
+                    color: #000;
+                    background: #fff;
+                }
+                .ticket { width: 100%; }
+                .header { text-align: center; }
+                h2 { font-size: 16px; margin: 0 0 5px 0; text-transform: uppercase; }
+                p { margin: 0; font-size: 12px; }
+                .dashed-line { border-bottom: 1px dashed #000; margin: 10px 0; }
+                .row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
+                .label { font-weight: bold; }
+                .value { text-align: right; max-width: 60%; word-wrap: break-word; }
+                .section-title { font-weight: bold; font-size: 12px; margin-bottom: 5px; text-transform: uppercase; }
+                .comment-box { font-size: 12px; white-space: pre-wrap; word-wrap: break-word; }
+                .footer { text-align: center; margin-top: 20px; font-size: 12px; }
             </style>
         </head>
         <body onload="window.print(); window.close();">

@@ -207,30 +207,29 @@
             <!-- LOGISTICS / MOVEMENTS VIEW -->
             <div id="view-movements" class="view-section hidden">
                 <h1>Control Logístico</h1>
-
-                <div class="search-bar" style="margin-bottom:15px; display:flex; gap:10px;">
-                    <i class="fas fa-search" style="position:absolute; margin:12px; color:var(--text-muted);"></i>
-                    <input type="text" id="logistics-search" onkeyup="filterLogistics()"
-                        placeholder="Buscar por guía, proveedor o usuario..."
-                        style="width:100%; padding:10px 10px 10px 35px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); color:var(--text-main);">
+                <!-- LOGISTICS HEADER -->
+                <h2 style="margin-bottom:20px;">Control Logístico</h2>
+                <div class="search-bar-row" style="display:flex; gap:10px; margin-bottom:20px;">
+                    <input type="text" id="search-logistics" class="input-modern"
+                        placeholder="Buscar por guía, proveedor o usuario..." style="flex:1;"
+                        onkeyup="filterLogistics()">
+                    <input type="date" id="search-date" class="input-modern" style="width:160px;"
+                        onchange="filterLogistics()">
                 </div>
 
                 <!-- TABS -->
-                <div class="tabs">
-                    <div class="tab active" onclick="switchLogisticsTab('preingresos')">Pre-ingresos (Recepción)</div>
-                    <div class="tab" onclick="switchLogisticsTab('guias')">Guías (Control)</div>
+                <div style="margin-bottom:20px; border-bottom:1px solid #333; padding-bottom:10px;">
+                    <button class="tab active" onclick="switchLogisticsTab('preingresos')">Pre-ingresos
+                        (Recepción)</button>
+                    <button class="tab" onclick="switchLogisticsTab('guias')">Guias (Control)</button>
                 </div>
 
-                <!-- PRE-INGRESOS CONTENT -->
+                <!-- TAB CONTENT: PRE-INGRESOS -->
                 <div id="tab-preingresos" class="tab-content" style="display:block;">
-                    <div id="preingresos-grid" class="dashboard-grid">
-                        <!-- Filled by JS -->
-                        <div style="text-align:center; padding:20px; color:var(--text-muted);">Cargando recepciones...
-                        </div>
-                    </div>
+                    <div id="preingresos-container"></div>
                 </div>
 
-                <!-- GUIAS CONTENT -->
+                <!-- TAB CONTENT: GUIAS -->
                 <div id="tab-guias" class="tab-content" style="display:none;">
                     <!-- New Card Container (Replacing Table) -->
                     <div id="guias-container" class="dashboard-grid" style="grid-template-columns: 1fr;">

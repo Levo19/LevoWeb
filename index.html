@@ -206,14 +206,20 @@
 
             <!-- LOGISTICS / MOVEMENTS VIEW -->
             <div id="view-movements" class="view-section hidden">
-                <h1>Control Logístico</h1>
-                <!-- LOGISTICS HEADER -->
-                <h2 style="margin-bottom:20px;">Control Logístico</h2>
-                <div class="search-bar-row" style="display:flex; gap:10px; margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2 style="margin:0;">Control Logístico</h2>
+                    <span style="font-size:12px; color:var(--text-muted);">Gestión de Ingresos y Salidas</span>
+                </div>
+
+                <div class="search-toolbar">
+                    <i class="fas fa-search" style="color:var(--text-muted); padding-left:5px;"></i>
                     <input type="text" id="search-logistics" class="input-modern"
-                        placeholder="Buscar por guía, proveedor o usuario..." style="flex:1;"
-                        onkeyup="filterLogistics()">
-                    <input type="date" id="search-date" class="input-modern" style="width:160px;"
+                        placeholder="Buscar por guía, proveedor o usuario..."
+                        style="border:none; background:transparent; padding:0;" onkeyup="filterLogistics()">
+                    <div style="width:1px; height:24px; background:var(--border);"></div>
+                    <i class="far fa-calendar" style="color:var(--text-muted);"></i>
+                    <input type="date" id="search-date" class="input-modern"
+                        style="width:140px; border:none; background:transparent; padding:0;"
                         onchange="filterLogistics()">
                 </div>
 

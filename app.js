@@ -683,11 +683,19 @@ function renderPreingresos(data) {
                 });
                 if (imgs.length > 1) {
                     carouselHtml += `
-                        <button class="carousel-ctrl carousel-prev" onclick="nextPreImage('${uniqueId}', -1)"><i class="fas fa-chevron-left"></i></button>
-                        <button class="carousel-ctrl carousel-next" onclick="nextPreImage('${uniqueId}', 1)"><i class="fas fa-chevron-right"></i></button>
+                        <button class="carousel-ctrl carousel-prev" onclick="event.stopPropagation(); nextPreImage('${uniqueId}', -1)"><i class="fas fa-chevron-left"></i></button>
+                        <button class="carousel-ctrl carousel-next" onclick="event.stopPropagation(); nextPreImage('${uniqueId}', 1)"><i class="fas fa-chevron-right"></i></button>
                      `;
                 }
-                carouselHtml += `<button class="expand-btn" onclick="expandPreImage('${uniqueId}')"><i class="fas fa-expand"></i></button>`;
+                carouselHtml += `<button class="expand-btn" onclick="event.stopPropagation(); expandPreImage('${uniqueId}')"><i class="fas fa-expand"></i></button>`;
+            }
+
+            // Logic for Amount Display: Empty means "Sin Comprobante", 0 means "Gratis" or "0"
+            let amountDisplay = '';
+            if (p.monto === '' || p.monto === null || p.monto === undefined) {
+                amountDisplay = '<span style="color:#ef4444; font-size:13px; font-weight:bold;">SIN COMPROBANTE</span>';
+            } else {
+                amountDisplay = `<span style="color:#4ade80;">S/ ${parseFloat(p.monto).toFixed(2)}</span>`;
             }
 
             const cardWrapper = document.createElement('div');
@@ -716,7 +724,7 @@ function renderPreingresos(data) {
                              <div style="font-size:14px; font-weight:bold; color:white;">${p.proveedor}</div>
                              
                              <h4 style="color:var(--text-muted); margin:5px 0 0 0; font-size:11px; text-transform:uppercase;">Monto Ref.</h4>
-                             <div style="font-size:14px; font-weight:bold; color:#4ade80;">S/ ${p.monto || '0.00'}</div>
+                             <div style="font-size:14px; font-weight:bold;">${amountDisplay}</div>
                              
                              <h4 style="color:var(--text-muted); margin:5px 0 0 0; font-size:11px; text-transform:uppercase;">Comentario Completo</h4>
                              <div style="font-size:13px; color:#e2e8f0; font-style:italic; background:rgba(255,255,255,0.05); padding:8px; border-radius:6px;">
@@ -741,10 +749,49 @@ function renderPreingresos(data) {
     });
 }
 
+// --- FILTER LOGIC ---
+window.filterLogistics = function () {
+    const term = document.getElementById('search-logistics').value.toLowerCase();
+    const dateVal = document.getElementById('search-date').value; // YYYY-MM-DD format
+
+    // 1. Filter Preingresos
+    const filteredPre = LOGISTICS_CACHE.preingresos.filter(p => {
+        let d = '';
+        try { d = new Date(p.fecha).toISOString().split('T')[0]; } catch (e) { }
+
+        const matDate = !dateVal || d === dateVal;
+        const matText = !term ||
+            String(p.idPreingreso).toLowerCase().includes(term) ||
+            (p.proveedor && p.proveedor.toLowerCase().includes(term)) ||
+            (p.comentario && p.comentario.toLowerCase().includes(term));
+        return matDate && matText;
+    });
+    renderPreingresos(filteredPre);
+
+    // 2. Filter Guias
+    const filteredGuias = LOGISTICS_CACHE.guias.filter(g => {
+        let d = '';
+        try { d = new Date(g.fecha).toISOString().split('T')[0]; } catch (e) { }
+
+        const matDate = !dateVal || d === dateVal;
+        const matText = !term ||
+            String(g.idGuia).toLowerCase().includes(term) ||
+            (g.tipo && g.tipo.toLowerCase().includes(term)) ||
+            (g.proveedor && g.proveedor.toLowerCase().includes(term)) ||
+            (g.usuario && g.usuario.toLowerCase().includes(term));
+        return matDate && matText;
+    });
+    renderGuias(filteredGuias);
+};
+
 function renderGuias(data) {
     const container = document.getElementById('guias-container');
     if (!container) return;
     container.innerHTML = '';
+
+    // Use .preingreso-grid style for consistency (Vertical Grid)
+    const grid = document.createElement('div');
+    grid.className = 'preingreso-grid';
 
     // Group By Date
     const groups = {};
@@ -763,80 +810,85 @@ function renderGuias(data) {
     sortedDates.forEach(dateKey => {
         const header = document.createElement('div');
         header.className = 'logistics-group-header';
+        header.style.gridColumn = "1 / -1"; // Header spans full width
         header.innerHTML = `<span><i class="far fa-calendar-alt"></i> ${dateKey}</span>`;
         container.appendChild(header);
+
+        // We append cards to the main container which should be the grid, 
+        // BUT my structure in renderPreingresos creates a grid PER date group.
+        // Let's stick to the renderPreingresos pattern: Header -> GridDiv
+
+        const grid = document.createElement('div');
+        grid.className = 'preingreso-grid';
 
         groups[dateKey].forEach(g => {
             const isIngreso = String(g.tipo).toUpperCase().includes('INGRESO');
             const colorClass = isIngreso ? 'guia-type-ingreso' : 'guia-type-salida';
-            const neonColor = isIngreso ? 'neon-text-blue' : 'neon-text-orange';
-            const btnClass = isIngreso ? 'btn-neon-blue' : 'btn-neon-ghost';
-            const uniqueId = 'card-' + g.idGuia;
+            const uniqueId = 'guia-' + g.idGuia;
 
             // Incident Badge
             let incidentBadge = '';
-            if (g.hasIncidents) incidentBadge = `<div class="alert-neon"><i class="fas fa-bolt"></i> ${g.incidents ? g.incidents.length : ''} ALERTAS</div>`;
+            if (g.hasIncidents) incidentBadge = `<div class="alert-neon" style="position:absolute; top:10px; right:10px; z-index:5;"><i class="fas fa-bolt"></i> ${g.incidents ? g.incidents.length : ''} ALERTAS</div>`;
 
             // Image
-            let imgHtml = `<div class="guia-no-img"><i class="fas fa-cube"></i></div>`;
-            if (g.foto) imgHtml = `<img src="${fixDriveLink(g.foto)}" class="guia-img-thumb">`;
-
-            // Connection to Preingreso
-            let preingresoComment = 'No vinculado';
-            let linkedPreId = '';
-            if (g.idPreingreso) {
-                const foundPre = LOGISTICS_CACHE.preingresos ? LOGISTICS_CACHE.preingresos.find(p => String(p.idPreingreso) === String(g.idPreingreso)) : null;
-                if (foundPre) preingresoComment = foundPre.comentario || 'Sin comentario';
-                linkedPreId = g.idPreingreso;
+            let imgHtml = '';
+            if (!g.foto) {
+                imgHtml = `
+                    <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#1e293b; color:#475569;">
+                        <i class="fas fa-cube" style="font-size:40px; margin-bottom:10px;"></i>
+                        <span style="font-size:12px;">Sin Foto</span>
+                    </div>`;
+            } else {
+                imgHtml = `<img src="${fixDriveLink(g.foto)}" style="width:100%; height:100%; object-fit:cover;">`;
             }
 
-            const cardContainer = document.createElement('div');
-            cardContainer.className = 'guia-card-container';
-            cardContainer.innerHTML = `
-                <div class="guia-card ${colorClass}" id="${uniqueId}">
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'pre-card-wrapper'; // REUSE WRAPPER
+            cardWrapper.innerHTML = `
+                <div class="pre-card ${colorClass}" id="${uniqueId}" onclick="togglePreCard('${uniqueId}')">
                     <!-- FRONT -->
-                    <div class="guia-face guia-front">
-                        <button class="flip-toggle-btn" onclick="flipCard('${uniqueId}')"><i class="fas fa-sync-alt"></i></button>
-                        <div class="guia-img-col">${imgHtml}</div>
-                        <div class="guia-info-col">
-                            <div>
-                                <h4 class="${neonColor}" style="margin:0; font-size:16px;">${g.proveedor || g.usuario}</h4>
-                                <div style="font-size:11px; opacity:0.7; margin-bottom:5px;">${g.tipo} | ${new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                ${incidentBadge}
-                            </div>
-                            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-                                <span class="status-badge-pill status-${g.estado === 'COMPLETADO' ? 'success' : 'pending'}">${g.estado}</span>
-                                <button class="${btnClass} btn-neon-round" onclick="event.stopPropagation(); openGuiaDetails('${g.idGuia}')">
-                                    DETALLES <i class="fas fa-arrow-right"></i>
-                                </button>
-                            </div>
+                    <div class="pre-face pre-front">
+                         ${incidentBadge}
+                        <div class="pre-header">
+                            <div class="pre-prov">${g.proveedor || g.usuario}</div>
+                            <div class="pre-time">${g.tipo} | ${new Date(g.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div class="pre-carousel">
+                            ${imgHtml}
+                        </div>
+                        <div class="pre-footer">
+                            <span class="status-badge-pill status-${g.estado === 'COMPLETADO' ? 'success' : 'pending'}">${g.estado}</span>
+                            <div style="font-size:11px; opacity:0.7;">Click para voltear</div>
                         </div>
                     </div>
                     
                     <!-- BACK -->
-                    <div class="guia-face guia-back">
-                         <button class="flip-toggle-btn" onclick="flipCard('${uniqueId}')"><i class="fas fa-undo"></i></button>
-                         <div>
-                             <h5 style="color:white; margin:0 0 10px 0;">Notas y Conexiones</h5>
-                             <div class="guia-comment-box">
-                                 <span class="guia-comment-label">COMENTARIO DE GUÍA (INGRESO)</span>
-                                 ${g.comentario || 'Sin comentarios'}
+                    <div class="pre-face pre-back">
+                        <div style="width:100%; padding:20px; flex:1; overflow-y:auto;">
+                             <h4 style="color:var(--text-muted); margin:0; font-size:11px;">COMENTARIOS</h4>
+                             <div style="font-size:13px; color:white; margin-bottom:15px; font-style:italic;">
+                                "${g.comentario || 'Sin comentario'}"
                              </div>
-                             <div class="guia-comment-box">
-                                 <span class="guia-comment-label">COMENTARIO DE PRE-INGRESO (RESPALDO)</span>
-                                 ${preingresoComment}
+                             
+                             ${g.idPreingreso ? `
+                                 <h4 style="color:var(--text-muted); margin:0; font-size:11px;">PRE-INGRESO VINCULADO</h4>
+                                 <div style="font-size:12px; color:#aaa; margin-bottom:15px;">ID: ${g.idPreingreso}</div>
+                             ` : ''}
+
+                             <button class="btn-primary" onclick="event.stopPropagation(); openGuiaDetails('${g.idGuia}')" style="width:100%; margin-bottom:10px;">
+                                VER DETALLES <i class="fas fa-arrow-right"></i>
+                             </button>
+                             <div style="display:flex; gap:10px;">
+                                <button class="btn button-secondary" style="flex:1;" onclick="event.stopPropagation(); printTicket('GUIA', '${g.idGuia}')"><i class="fas fa-print"></i></button>
+                                <button class="btn button-secondary" style="flex:1;" onclick="event.stopPropagation(); copyToClipboard('${g.idGuia}')"><i class="far fa-copy"></i></button>
                              </div>
-                         </div>
-                         <div style="display:flex; gap:10px; justify:center;">
-                             ${linkedPreId ? `<button class="btn-neon-ghost btn-neon-round" onclick="openLinkedEvidence('${linkedPreId}')"><i class="fas fa-camera"></i> FOTOS</button>` : ''}
-                             <button class="btn-neon-ghost btn-neon-round" onclick="printTicket('GUIA', '${g.idGuia}')"><i class="fas fa-print"></i> TICKET</button>
-                             <button class="btn-neon-ghost btn-neon-round" onclick="copyToClipboard('${g.idGuia}')"><i class="far fa-copy"></i> ID</button>
-                         </div>
+                        </div>
                     </div>
                 </div>
             `;
-            container.appendChild(cardContainer);
+            grid.appendChild(cardWrapper);
         });
+        container.appendChild(grid);
     });
 }
 
@@ -979,6 +1031,13 @@ window.printTicket = function (type, id) {
         const p = LOGISTICS_CACHE.preingresos.find(x => String(x.idPreingreso) === String(id));
         if (!p) return alert("Datos no encontrados");
 
+        let amountStr = '';
+        if (p.monto === '' || p.monto === null || p.monto === undefined) {
+            amountStr = 'SIN COMPROBANTE';
+        } else {
+            amountStr = 'S/ ' + parseFloat(p.monto).toFixed(2);
+        }
+
         content = `
             <div class="ticket">
                 <div class="header">
@@ -996,7 +1055,7 @@ window.printTicket = function (type, id) {
                 </div>
                 <div class="row">
                     <span class="label">MONTO REF:</span>
-                    <span class="value">S/ ${p.monto || '0.00'}</span>
+                    <span class="value">${amountStr}</span>
                 </div>
                 <div class="dashed-line"></div>
                 <div class="section-title">NOTA / COMENTARIO:</div>
@@ -1412,6 +1471,66 @@ window.toggleMobileMenu = function () {
         backdrop.classList.add('open');
     }
 }
+
+// --- EDIT PRE-INGRESO MODAL (Robust) ---
+window.openEditPreingreso = function (idPre) {
+    if (!LOGISTICS_CACHE.preingresos) {
+        alert("Cargando datos...");
+        return;
+    }
+
+    // Robust find: Compare strings to avoid string vs number issues
+    const targetId = String(idPre).trim();
+    const item = LOGISTICS_CACHE.preingresos.find(p => String(p.idPreingreso).trim() === targetId);
+
+    if (!item) {
+        alert("Error: Ítem Pre-ingreso no encontrado en caché (" + idPre + ")");
+        console.error("Item Not Found. Cache keys:", LOGISTICS_CACHE.preingresos.map(x => x.idPreingreso));
+        return;
+    }
+
+    // Clean existing
+    const existing = document.getElementById('edit-pre-modal');
+    if (existing) existing.remove();
+
+    // Create Modal
+    const modal = document.createElement('div');
+    modal.id = 'edit-pre-modal';
+    modal.className = 'menu-backdrop';
+    modal.style.display = 'flex'; // Ensure flex for centering
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '9999'; // Force Top
+
+    modal.innerHTML = `
+        <div class="card" style="width:90%; max-width:500px; padding:25px; background:var(--bg-surface); border:1px solid var(--primary); box-shadow:0 0 30px rgba(0,0,0,0.5);">
+            <h3 style="margin-top:0; color:var(--primary);">Editar Pre-ingreso</h3>
+            <p style="color:#aaa; font-size:12px; margin-bottom:20px;">ID: ${item.idPreingreso}</p>
+            
+            <input type="hidden" id="edit-pre-id" value="${item.idPreingreso}">
+            
+            <label>Proveedor</label>
+            <input type="text" id="edit-pre-prov" class="input-modern" value="${item.proveedor || ''}">
+            
+            <label style="margin-top:10px; display:block;">Comentario / Detalle</label>
+            <textarea id="edit-pre-comm" class="input-modern" rows="4">${item.comentario || ''}</textarea>
+            
+            <label style="margin-top:10px; display:block;">Monto Referencial (Dejar vacío si no aplica)</label>
+            <input type="number" id="edit-pre-monto" class="input-modern" value="${item.monto || ''}" placeholder="Ej: 150.50">
+            
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                 <button class="btn button-secondary" onclick="document.getElementById('edit-pre-modal').remove()">Cancelar</button>
+                 <button class="btn button-primary" onclick="submitEditPreingreso()">Guardar Cambios</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Animation / Open Class
+    requestAnimationFrame(() => {
+        modal.classList.add('open');
+    });
+};
 
 // Modify showView to auto-close menu on mobile
 const originalShowView = window.showView;

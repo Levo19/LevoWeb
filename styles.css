@@ -739,15 +739,21 @@ body {
 }
 
 /* --- PRE-INGRESO SQUARE CARDS (Fixed Size) --- */
+/* --- PRE-INGRESO SQUARE CARDS (Fixed Size) --- */
 .preingreso-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    /* Use auto-fill to keep column sizes rigid, preventing massive stretching */
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 25px;
     padding: 15px 0;
 }
 
 .pre-card-wrapper {
     width: 100%;
+    /* Limit the maximum width to prevent giant cards on wide screens */
+    max-width: 380px;
+    margin: 0 auto;
+    /* Center the card within the grid cell */
     aspect-ratio: 4/5;
     /* Fixed Aspect Ratio for Consistency */
     position: relative;

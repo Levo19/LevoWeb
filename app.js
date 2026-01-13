@@ -659,11 +659,14 @@ function renderPreingresos(data) {
             const uniqueId = 'pre-' + p.idPreingreso;
 
             // Image Logic (Carousel)
-            // Handle 'fotos' string (comma separated or single)
             let imgs = [];
             if (p.fotos) {
                 if (p.fotos.includes(',')) imgs = p.fotos.split(',');
                 else imgs = [p.fotos];
+                // Clean JSON if needed
+                if (imgs.length == 1 && imgs[0].startsWith('[')) {
+                    try { imgs = JSON.parse(imgs[0]); } catch (e) { }
+                }
             }
 
             let carouselHtml = '';
@@ -696,19 +699,27 @@ function renderPreingresos(data) {
                             ${carouselHtml}
                         </div>
                         <div class="pre-footer">
-                            <div class="pre-comment">"${p.comentario || 'Sin comentario'}"</div>
+                            <div class="pre-comment">${p.comentario || 'Sin comentario'}</div>
                             <span class="pre-badge">${p.estado || 'PENDIENTE'}</span>
                         </div>
                     </div>
                     
                     <!-- BACK -->
                     <div class="pre-face pre-back">
-                        <button class="action-btn-large" onclick="event.stopPropagation(); printTicket('PRE', '${p.idPreingreso}')">
-                            <i class="fas fa-print"></i> <span>Ticket</span>
-                        </button>
-                        <button class="action-btn-large" onclick="event.stopPropagation(); openEditPreingreso('${p.idPreingreso}')">
-                            <i class="fas fa-pen"></i> <span>Editar</span>
-                        </button>
+                        <div style="width:100%; padding:15px; flex:1; overflow:auto;">
+                             <h4 style="color:#d050ff; margin:0 0 5px 0;">Comentario</h4>
+                             <p style="font-size:12px; color:#ddd; font-style:italic;">
+                                ${p.comentario || 'Sin comentario registrado.'}
+                             </p>
+                        </div>
+                        <div style="display:flex; width:100%; justify-content:space-around; padding:15px; border-top:1px solid rgba(160,32,240,0.3);">
+                            <button class="action-btn-large" onclick="event.stopPropagation(); printTicket('PRE', '${p.idPreingreso}')">
+                                <i class="fas fa-print"></i> <span>Ticket</span>
+                            </button>
+                            <button class="action-btn-large" onclick="event.stopPropagation(); openEditPreingreso('${p.idPreingreso}')">
+                                <i class="fas fa-pen"></i> <span>Editar</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
              `;
@@ -943,13 +954,67 @@ function renderDetailsList(list, container) {
 // --- TICKET PRINTING SYSTEM ---
 window.copyToClipboard = function (text) {
     navigator.clipboard.writeText(text).then(() => {
-        alert("ID Copiado: " + text);
+        // Optional: Toast notification instead of alert?
+        // alert("ID Copiado: " + text); 
     }).catch(err => console.error('Error copying:', err));
 };
 
 window.printTicket = function (type, id) {
-    // Placeholder for ticket printing
-    alert(`Imprimiendo Ticket ${type}: ${id} (Simulación)`);
+    let content = '';
+    const dateStr = new Date().toLocaleString();
+
+    if (type === 'PRE') {
+        const p = LOGISTICS_CACHE.preingresos.find(x => String(x.idPreingreso) === String(id));
+        if (!p) return alert("Datos no encontrados");
+
+        content = `
+            <div class="ticket">
+                <div class="header">
+                    <h3>CONSTANCIA DE RECEPCIÓN</h3>
+                    <p>${dateStr}</p>
+                </div>
+                <div class="info">
+                    <p><strong>ID:</strong> ${p.idPreingreso}</p>
+                    <p><strong>Proveedor:</strong> ${p.proveedor}</p>
+                    <p><strong>Monto Ref:</strong> ${p.monto || '0.00'}</p>
+                </div>
+                <hr>
+                <div class="comment">
+                    <p><strong>Nota:</strong></p>
+                    <p>${p.comentario || '-'}</p>
+                </div>
+                <hr>
+                <p style="text-align:center; font-size:10px;">LevoWeb ERP</p>
+            </div>
+        `;
+    } else {
+        // Fallback for Guia or Other
+        content = `<p>Impresión no disponible para ${type}</p>`;
+        // If we want detailed Print for Guias too, we can add it here.
+    }
+
+    // Print Window
+    const win = window.open('', '_blank', 'width=350,height=500');
+    win.document.write(`
+        <html>
+        <head>
+            <title>Ticket ${id}</title>
+            <style>
+                body { font-family: monospace; padding: 20px; text-align: left; }
+                .ticket { border: 1px solid #000; padding: 10px; }
+                .header { text-align: center; margin-bottom: 10px; }
+                h3 { margin: 0 0 5px 0; }
+                p { margin: 3px 0; font-size: 12px; }
+                hr { border: 0.5px dashed #000; margin: 10px 0; }
+                .comment { white-space: pre-wrap; }
+            </style>
+        </head>
+        <body onload="window.print(); window.close();">
+            ${content}
+        </body>
+        </html>
+    `);
+    win.document.close();
 };
 
 window.openIncidentResolve = async function (item, idGuia) {
@@ -1091,43 +1156,39 @@ window.openEditPreingreso = function (idPre) {
     const item = LOGISTICS_CACHE.preingresos.find(p => String(p.idPreingreso) === String(idPre));
     if (!item) return alert("Error: No encontrado");
 
+    // Remove existing modal to ensure fresh state
+    const existing = document.getElementById('edit-pre-modal');
+    if (existing) existing.remove();
+
     // Modal HTML
-    let modal = document.getElementById('edit-pre-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'edit-pre-modal';
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-card">
-                <h3>Editar Pre-Ingreso</h3>
-                <input type="hidden" id="edit-pre-id">
-                
-                <label>Proveedor / Origen</label>
-                <input type="text" id="edit-pre-prov" class="input-field">
-                
-                <label>Comentario / Detalle</label>
-                <textarea id="edit-pre-comm" class="input-field" rows="3"></textarea>
-                
-                <label>Monto Referencial</label>
-                <input type="number" id="edit-pre-monto" class="input-field">
-                
-                <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
-                     <button class="btn button-secondary" onclick="closeModal('edit-pre-modal')">Cancelar</button>
-                     <button class="btn button-primary" onclick="submitEditPreingreso()">Guardar Cambios</button>
-                </div>
+    let modal = document.createElement('div');
+    modal.id = 'edit-pre-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-card">
+            <h3 style="margin-top:0;">Editar Pre-Ingreso</h3>
+            <input type="hidden" id="edit-pre-id" value="${item.idPreingreso || ''}">
+            
+            <label>Proveedor / Origen</label>
+            <input type="text" id="edit-pre-prov" class="input-field" value="${item.proveedor || ''}">
+            
+            <label>Comentario / Detalle</label>
+            <textarea id="edit-pre-comm" class="input-field" rows="4">${item.comentario || ''}</textarea>
+            
+            <label>Monto Referencial</label>
+            <input type="number" id="edit-pre-monto" class="input-field" value="${item.monto || ''}">
+            
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                 <button class="btn button-secondary" onclick="document.getElementById('edit-pre-modal').remove()">Cancelar</button>
+                 <button class="btn button-primary" onclick="submitEditPreingreso()">Guardar Cambios</button>
             </div>
-        `;
-        document.body.appendChild(modal);
-    }
+        </div>
+    `;
+    document.body.appendChild(modal);
 
-    // Fill Data
-    document.getElementById('edit-pre-id').value = item.idPreingreso;
-    document.getElementById('edit-pre-prov').value = item.proveedor || '';
-    document.getElementById('edit-pre-comm').value = item.comentario || '';
-    document.getElementById('edit-pre-monto').value = item.monto || '';
-
-    modal.classList.add('open');
-}
+    // Force Open
+    setTimeout(() => modal.classList.add('open'), 10);
+};
 
 window.submitEditPreingreso = async function () {
     const id = document.getElementById('edit-pre-id').value;
@@ -1136,6 +1197,7 @@ window.submitEditPreingreso = async function () {
     const mont = document.getElementById('edit-pre-monto').value;
 
     const btn = document.querySelector('#edit-pre-modal .button-primary');
+    const originalText = btn.innerText;
     btn.innerText = "Guardando...";
     btn.disabled = true;
 
@@ -1150,17 +1212,22 @@ window.submitEditPreingreso = async function () {
 
         if (res.success) {
             alert("Actualizado correctamente.");
-            closeModal('edit-pre-modal');
+            document.getElementById('edit-pre-modal').remove();
             loadLogistics(); // Refresh UI
         } else {
             alert("Error: " + res.error);
         }
-    } catch (e) { alert("Error de conexión"); }
-    finally {
-        btn.innerText = "Guardar Cambios";
-        btn.disabled = false;
+    } catch (e) {
+        console.error(e);
+        alert("Error de conexión");
+    } finally {
+        if (btn) {
+            btn.innerText = "Guardar Cambios";
+            btn.disabled = false;
+        }
     }
-}
+};
+
 async function loadWarehouseData() {
     const container = document.getElementById('view-warehouse');
     // For now, inject the Import Logic here or keep it separate? 

@@ -100,6 +100,7 @@ window.showView = function (viewName) {
             'warehouse': 'Gestión de Almacén',
             'movements': 'Movimientos',
             'purchases': 'Compras',
+            'finanzas': 'Finanzas y Gastos',
             'users': 'Usuarios'
         };
         titleEl.innerText = titles[viewName] || viewName.charAt(0).toUpperCase() + viewName.slice(1);
@@ -109,6 +110,126 @@ window.showView = function (viewName) {
     if (viewName === 'products') loadProducts();
     if (viewName === 'movements') loadLogistics();
     if (viewName === 'warehouse') loadWarehouseData();
+    if (viewName === 'finanzas') loadGastos();
+}
+
+// --- MODULE LOGIC: FINANZAS (GASTOS) ---
+let GASTOS_CACHE = [];
+
+async function loadGastos() {
+    const tbody = document.getElementById('gastos-table-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;"><i class="fas fa-circle-notch fa-spin"></i> Cargando gastos...</td></tr>`;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'getGastos' })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            GASTOS_CACHE = result.data || [];
+            renderGastos(GASTOS_CACHE);
+        } else {
+            console.error(result.error);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--danger);">Error cargando gastos</td></tr>`;
+        }
+    } catch (e) {
+        console.error("Fetch Error", e);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--danger);">Error de conexión</td></tr>`;
+    }
+}
+
+function renderGastos(gastos) {
+    const tbody = document.getElementById('gastos-table-body');
+    const totalEl = document.getElementById('finanzas-total-gastos');
+    if (!tbody) return;
+
+    if (gastos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No hay gastos registrados este mes.</td></tr>`;
+        if (totalEl) totalEl.innerText = 'S/ 0.00';
+        return;
+    }
+
+    let totalMes = 0;
+    let html = '';
+
+    // Sort Date Descending (assuming string ISO or standard date formats)
+    const sorted = [...gastos].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    sorted.forEach(g => {
+        const monto = parseFloat(g.monto) || 0;
+        totalMes += monto;
+
+        let formattedDate = 'Sin fecha';
+        try {
+            formattedDate = new Date(g.fecha).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch (e) { }
+
+        html += `
+            <tr>
+                <td>${formattedDate}</td>
+                <td><span class="badge" style="background:rgba(255,255,255,0.1);">${g.categoria}</span></td>
+                <td>${g.descripcion}</td>
+                <td style="font-weight:bold; color:var(--danger)">S/ ${monto.toFixed(2)}</td>
+                <td style="font-size:12px; color:var(--text-muted);">${g.usuario || 'Admin'}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+    if (totalEl) {
+        totalEl.innerText = `S/ ${totalMes.toFixed(2)}`;
+    }
+}
+
+window.openGastoModal = function () {
+    document.getElementById('gasto-form').reset();
+    document.getElementById('gasto-modal').classList.add('open');
+};
+
+window.closeGastoModal = function () {
+    document.getElementById('gasto-modal').classList.remove('open');
+};
+
+window.saveNuevoGasto = async function (e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerText;
+    btn.innerText = "Guardando...";
+    btn.disabled = true;
+
+    const payload = {
+        categoria: document.getElementById('gasto-cat').value,
+        monto: parseFloat(document.getElementById('gasto-monto').value),
+        descripcion: document.getElementById('gasto-desc').value,
+        fecha: new Date().toISOString(),
+        usuario: 'Gerencia' // Single user layout
+    };
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'saveGasto', payload: payload })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            closeGastoModal();
+            // Optimistic Update
+            payload.idGasto = result.idGasto || ('G-' + Date.now());
+            GASTOS_CACHE.unshift(payload);
+            renderGastos(GASTOS_CACHE);
+        } else {
+            alert("Error: " + result.error);
+        }
+    } catch (err) {
+        alert("Error de conexión");
+        console.error(err);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
 }
 
 

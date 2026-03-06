@@ -101,6 +101,7 @@ window.showView = function (viewName) {
             'movements': 'Movimientos',
             'purchases': 'Compras',
             'finanzas': 'Finanzas y Gastos',
+            'analytics': 'Analítica e IA',
             'users': 'Usuarios'
         };
         titleEl.innerText = titles[viewName] || viewName.charAt(0).toUpperCase() + viewName.slice(1);
@@ -110,10 +111,135 @@ window.showView = function (viewName) {
     if (viewName === 'products') loadProducts();
     if (viewName === 'movements') loadLogistics();
     if (viewName === 'warehouse') loadWarehouseData();
-    if (viewName === 'finanzas') loadGastos();
+    if (viewName === 'finanzas') {
+        loadGastos();
+        loadLogistics(); // Also load logistics to allow crossing data
+    }
+    if (viewName === 'analytics') {
+        loadGastos();
+        loadLogistics(); // We need all data for Analytics
+        setTimeout(renderAnalytics, 1000); // Wait for loads
+    }
 }
 
-// --- MODULE LOGIC: FINANZAS (GASTOS) ---
+// --- MODULE LOGIC: ANALYTICS (IA & METRICS) ---
+let chartMargins, chartRotation, chartUtility;
+
+function renderAnalytics() {
+    if (!LOGISTICS_CACHE.guias || LOGISTICS_CACHE.products?.length === 0) return;
+
+    // 1. Data Aggregation
+    const productStats = {};
+    LOGISTICS_CACHE.products.forEach(p => {
+        productStats[p.code] = { name: p.name, price: parseFloat(p.unitPrice) || 0, qtyOut: 0, margin: 0 };
+    });
+
+    LOGISTICS_CACHE.guias.forEach(g => {
+        if (String(g.tipo).toUpperCase() === 'SALIDA') {
+            const details = LOGISTICS_CACHE.detailsMap[String(g.idGuia).trim()] || [];
+            details.forEach(det => {
+                const code = String(det.codigoProducto).trim();
+                if (productStats[code]) productStats[code].qtyOut += parseFloat(det.cantidad) || 0;
+            });
+        }
+    });
+
+    // We assume Cost is roughly 60% of price for Margin Demo (since Cost isn't mapped to IMOS yet in DB)
+    Object.values(productStats).forEach(p => {
+        const estimatedCost = p.price * 0.6; // Mock cost 60%
+        p.margin = p.price - estimatedCost;
+    });
+
+    // Top Rotación
+    const topRotation = Object.values(productStats).sort((a, b) => b.qtyOut - a.qtyOut).slice(0, 10);
+
+    // Top Margin (Only considering products that sold at least once)
+    const topMargin = Object.values(productStats).filter(p => p.qtyOut > 0).sort((a, b) => b.margin - a.margin).slice(0, 5);
+
+    // Timeline Utility (Last 6 Months Mock/Aggregation)
+    // Gather all expenses and incomes per month
+    const monthlyData = {};
+    const getMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+    GASTOS_CACHE.forEach(g => {
+        try {
+            const k = getMonthKey(new Date(g.fecha));
+            if (!monthlyData[k]) monthlyData[k] = { income: 0, expense: 0 };
+            monthlyData[k].expense += parseFloat(g.monto) || 0;
+        } catch (e) { }
+    });
+
+    LOGISTICS_CACHE.guias.forEach(g => {
+        if (String(g.tipo).toUpperCase() === 'SALIDA') {
+            try {
+                const k = getMonthKey(new Date(g.fecha));
+                if (!monthlyData[k]) monthlyData[k] = { income: 0, expense: 0 };
+
+                const details = LOGISTICS_CACHE.detailsMap[String(g.idGuia).trim()] || [];
+                details.forEach(det => {
+                    const product = productStats[String(det.codigoProducto).trim()];
+                    if (product) monthlyData[k].income += (product.price * (parseFloat(det.cantidad) || 0));
+                });
+            } catch (e) { }
+        }
+    });
+
+    // Sort Month Keys
+    const sortedMonths = Object.keys(monthlyData).sort().slice(-6); // Last 6 months
+    const utilityLabels = sortedMonths;
+    const utilityValues = sortedMonths.map(k => monthlyData[k].income - monthlyData[k].expense);
+
+    // --- RENDER CHARTS ---
+    Chart.defaults.color = '#8a9ab0';
+
+    if (chartRotation) chartRotation.destroy();
+    chartRotation = new Chart(document.getElementById('chart-rotation'), {
+        type: 'bar',
+        data: {
+            labels: topRotation.map(p => p.name.substring(0, 15) + '...'),
+            datasets: [{
+                label: 'Unidades Vendidas',
+                data: topRotation.map(p => p.qtyOut),
+                backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                borderRadius: 4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    if (chartMargins) chartMargins.destroy();
+    chartMargins = new Chart(document.getElementById('chart-margins'), {
+        type: 'doughnut',
+        data: {
+            labels: topMargin.map(p => p.name.substring(0, 20)),
+            datasets: [{
+                data: topMargin.map(p => p.margin),
+                backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+    });
+
+    if (chartUtility) chartUtility.destroy();
+    chartUtility = new Chart(document.getElementById('chart-utility'), {
+        type: 'line',
+        data: {
+            labels: utilityLabels.map(l => l.replace('-', '/')),
+            datasets: [{
+                label: 'Utilidad Neta (S/)',
+                data: utilityValues,
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+// --- MODULE LOGIC: FINANZAS (GASTOS Y RENTABILIDAD) ---
 let GASTOS_CACHE = [];
 
 async function loadGastos() {
@@ -130,6 +256,7 @@ async function loadGastos() {
         if (result.success) {
             GASTOS_CACHE = result.data || [];
             renderGastos(GASTOS_CACHE);
+            calculateRentabilidad();
         } else {
             console.error(result.error);
             if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--danger);">Error cargando gastos</td></tr>`;
@@ -220,6 +347,7 @@ window.saveNuevoGasto = async function (e) {
             payload.idGasto = result.idGasto || ('G-' + Date.now());
             GASTOS_CACHE.unshift(payload);
             renderGastos(GASTOS_CACHE);
+            calculateRentabilidad();
         } else {
             alert("Error: " + result.error);
         }
@@ -229,6 +357,79 @@ window.saveNuevoGasto = async function (e) {
     } finally {
         btn.innerText = originalText;
         btn.disabled = false;
+    }
+}
+
+
+// --- RENTABILIDAD LOGIC ---
+function calculateRentabilidad() {
+    // Current month/year filter
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // 1. Calculate Monthly Expenses
+    let totalGastosMes = 0;
+    GASTOS_CACHE.forEach(g => {
+        try {
+            const d = new Date(g.fecha);
+            if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+                totalGastosMes += parseFloat(g.monto) || 0;
+            }
+        } catch (e) { }
+    });
+
+    // Update DOM (Wait for it since renderGastos also updates it, we want exact month)
+    const elGastos = document.getElementById('finanzas-total-gastos');
+    if (elGastos) elGastos.innerText = `S/ ${totalGastosMes.toFixed(2)}`;
+
+    // 2. Calculate Gross Income (Ventas)
+    let ingresosBrutosMes = 0;
+
+    // Check if we have logistics data
+    if (LOGISTICS_CACHE && LOGISTICS_CACHE.guias && LOGISTICS_CACHE.detailsMap && PRODUCT_CACHE.length > 0) {
+        LOGISTICS_CACHE.guias.forEach(guia => {
+            // Only consider Outbound (Salida) for this month
+            if (String(guia.tipo).toUpperCase() !== 'SALIDA') return;
+
+            try {
+                const d = new Date(guia.fecha);
+                if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+                    const detalles = LOGISTICS_CACHE.detailsMap[String(guia.idGuia).trim()] || [];
+                    detalles.forEach(det => {
+                        const prodCode = String(det.codigoProducto).trim();
+                        const qty = parseFloat(det.cantidad) || 0;
+                        const product = PRODUCT_CACHE.find(p => p.code === prodCode);
+                        if (product) {
+                            const price = parseFloat(product.unitPrice) || 0;
+                            ingresosBrutosMes += (price * qty);
+                        }
+                    });
+                }
+            } catch (e) { }
+        });
+    }
+
+    const elIngresos = document.getElementById('finanzas-total-ingresos');
+    if (elIngresos) elIngresos.innerText = `S/ ${ingresosBrutosMes.toFixed(2)}`;
+
+    // 3. Calculate Net Profit (Utilidad Neta)
+    const utilidadNeta = ingresosBrutosMes - totalGastosMes;
+    const elUtilidad = document.getElementById('finanzas-utilidad-neta');
+    if (elUtilidad) {
+        elUtilidad.innerText = `S/ ${utilidadNeta.toFixed(2)}`;
+        // Dynamically style it based on positive/negative
+        if (utilidadNeta < 0) {
+            elUtilidad.style.color = '#ef4444'; // Red
+            elUtilidad.parentElement.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+            elUtilidad.parentElement.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+            elUtilidad.previousElementSibling.previousElementSibling.style.color = '#ef4444'; // icon
+        } else {
+            elUtilidad.style.color = '#3b82f6'; // Blue
+            elUtilidad.parentElement.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            elUtilidad.parentElement.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+            elUtilidad.previousElementSibling.previousElementSibling.style.color = '#3b82f6';
+        }
     }
 }
 
@@ -526,6 +727,7 @@ async function loadLogistics() {
         if (resGuias.success) {
             LOGISTICS_CACHE.guias = resGuias.data;
             renderGuias(resGuias.data);
+            calculateRentabilidad();
         }
     } catch (e) {
         console.error("Logistics Error", e);
@@ -999,6 +1201,11 @@ function renderGuias(data) {
                              <button class="btn-primary" onclick="event.stopPropagation(); openGuiaDetails('${g.idGuia}')" style="width:100%; margin-bottom:10px;">
                                 VER DETALLES <i class="fas fa-arrow-right"></i>
                              </button>
+                             ${isIngreso && g.estado === 'COMPLETADO' ? `
+                             <button class="btn-primary" onclick="event.stopPropagation(); openAuditCompra('${g.idGuia}')" style="background:#f59e0b; width:100%; margin-bottom:10px;">
+                                 AUDITAR COMPRA <i class="fas fa-check-double"></i>
+                             </button>
+                             ` : ''}
                              <div style="display:flex; gap:10px;">
                                 <button class="btn button-secondary" style="flex:1;" onclick="event.stopPropagation(); printTicket('GUIA', '${g.idGuia}')"><i class="fas fa-print"></i></button>
                                 <button class="btn button-secondary" style="flex:1;" onclick="event.stopPropagation(); copyToClipboard('${g.idGuia}')"><i class="far fa-copy"></i></button>
@@ -1135,6 +1342,104 @@ function renderDetailsList(list, container) {
     container.appendChild(table);
 }
 
+
+// --- MODULE: COMPRAS AUDIT ---
+let currentAuditGuia = null;
+
+window.openAuditCompra = function (idGuia) {
+    const guia = LOGISTICS_CACHE.guias.find(g => g.idGuia === idGuia);
+    if (!guia) return alert("Guia no encontrada.");
+    currentAuditGuia = guia;
+
+    document.getElementById('audit-header').innerHTML = `
+        <div><strong>Guía:</strong> ${guia.idGuia}</div>
+        <div><strong>Proveedor:</strong> ${guia.proveedor || guia.usuario}</div>
+        <div><strong>Fecha:</strong> ${new Date(guia.fecha).toLocaleDateString()}</div>
+        ${guia.hasIncidents ? '<div style="color:#ef4444; font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> Revisar Alertas de IA / Operador</div>' : ''}
+    `;
+
+    const details = LOGISTICS_CACHE.detailsMap[String(idGuia).trim()] || [];
+    const tbody = document.getElementById('audit-details-body');
+    let html = '';
+
+    details.forEach((det, i) => {
+        const prodCode = String(det.codigoProducto).trim();
+        const product = PRODUCT_CACHE.find(p => p.code === prodCode) || { name: prodCode, unitPrice: 0 };
+        const qty = parseFloat(det.cantidad) || 0;
+
+        // Mock IA Suggested Cost (60% of price)
+        const suggestedCost = (parseFloat(product.unitPrice) * 0.6).toFixed(2);
+
+        html += `
+            <tr data-code="${prodCode}" data-qty="${qty}">
+                <td style="font-size:12px;"><strong>${product.name.substring(0, 30)}</strong><br><span style="color:var(--text-muted)">${prodCode}</span></td>
+                <td>${qty}</td>
+                <td style="color:#f59e0b;"><i class="fas fa-robot"></i> S/ ${suggestedCost}</td>
+                <td>
+                    <input type="number" step="0.01" class="audit-real-cost input-field" value="${suggestedCost}" style="width:100px; background:var(--bg-surface); color:white;">
+                </td>
+            </tr>
+        `;
+    });
+
+    if (details.length === 0) {
+        html = `<tr><td colspan="4" style="text-align:center;">No hay detalles estándar. Revisa la pestaña de nuevos/incidencias en Detalles.</td></tr>`;
+    }
+
+    tbody.innerHTML = html;
+    document.getElementById('audit-modal').classList.add('open');
+};
+
+window.saveAuditCompra = async function () {
+    const btn = event.target;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Guardando...';
+    btn.disabled = true;
+
+    try {
+        const bodyRows = document.querySelectorAll('#audit-details-body tr[data-code]');
+        const auditData = [];
+        let totalCompra = 0;
+
+        bodyRows.forEach(tr => {
+            const code = tr.getAttribute('data-code');
+            const qty = parseFloat(tr.getAttribute('data-qty')) || 0;
+            const inputEl = tr.querySelector('.audit-real-cost');
+            const cost = inputEl ? parseFloat(inputEl.value) || 0 : 0;
+            const subtotal = qty * cost;
+            totalCompra += subtotal;
+
+            auditData.push({ codigo: code, cantidad: qty, costoUnitario: cost, subtotal: subtotal });
+        });
+
+        const payload = {
+            idGuia: currentAuditGuia.idGuia,
+            proveedor: currentAuditGuia.proveedor,
+            fechaAuditoria: new Date().toISOString(),
+            totalCosto: totalCompra,
+            detalles: auditData
+        };
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'saveCompra', payload: payload })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert("Compra auditada y guardada en LEVO correctamente.");
+            document.getElementById('audit-modal').classList.remove('open');
+            // Inform user to go to Purchases View which could be Phase 4.3 maybe?
+        } else {
+            alert("Error: " + result.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error de red");
+    } finally {
+        btn.innerHTML = '<i class="fas fa-save"></i> Aprobar Compra';
+        btn.disabled = false;
+    }
+}
 
 // --- TICKET PRINTING SYSTEM ---
 window.copyToClipboard = function (text) {

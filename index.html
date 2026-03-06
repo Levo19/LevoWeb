@@ -11,6 +11,8 @@
     <!-- Google Fonts Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -71,6 +73,9 @@
                 </a>
                 <a href="#" class="nav-item" onclick="showView('finanzas')">
                     <i class="fas fa-chart-pie"></i> Finanzas
+                </a>
+                <a href="#" class="nav-item" onclick="showView('analytics')">
+                    <i class="fas fa-chart-line"></i> Analítica
                 </a>
 
                 <div class="section-header" style="padding: 0 20px;">Sistema</div>
@@ -147,6 +152,16 @@
                 </div>
 
                 <div class="dashboard-grid" style="margin-bottom: 20px;">
+                    <!-- Ingresos Brutos -->
+                    <div class="action-card"
+                        style="background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2);">
+                        <div class="card-icon" style="color: #22c55e;"><i class="fas fa-arrow-trend-up"></i></div>
+                        <div class="card-title">Ingresos Brutos (Mes)</div>
+                        <div class="card-desc" style="color: #22c55e; font-size: 1.5rem; font-weight: bold;"
+                            id="finanzas-total-ingresos">S/ 0.00</div>
+                    </div>
+
+                    <!-- Total Gastos -->
                     <div class="action-card"
                         style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2);">
                         <div class="card-icon" style="color: #ef4444;"><i class="fas fa-arrow-trend-down"></i></div>
@@ -154,8 +169,19 @@
                         <div class="card-desc" style="color: #ef4444; font-size: 1.5rem; font-weight: bold;"
                             id="finanzas-total-gastos">S/ 0.00</div>
                     </div>
+
+                    <!-- Utilidad Neta -->
+                    <div class="action-card"
+                        style="background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2);">
+                        <div class="card-icon" style="color: #3b82f6;"><i class="fas fa-sack-dollar"></i></div>
+                        <div class="card-title">Utilidad Neta (Mes)</div>
+                        <div class="card-desc" style="color: #3b82f6; font-size: 1.5rem; font-weight: bold;"
+                            id="finanzas-utilidad-neta">S/ 0.00</div>
+                    </div>
+
+                    <!-- Registrar Nuevo Gasto Button -->
                     <div class="action-card" onclick="openGastoModal()"
-                        style="display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                        style="display: flex; align-items: center; justify-content: center; cursor: pointer; border-style: dashed;">
                         <div style="text-align: center;">
                             <i class="fas fa-plus-circle"
                                 style="font-size: 2rem; color: var(--primary); margin-bottom: 10px;"></i>
@@ -226,6 +252,42 @@
                 </div>
             </div>
 
+            <!-- VIEW: ANALÍTICA -->
+            <div id="view-analytics" class="view-section hidden">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2 style="margin:0;">Analítica e Inteligencia</h2>
+                    <span style="font-size:12px; color:var(--text-muted);">Decisiones basadas en datos</span>
+                </div>
+
+                <div class="dashboard-grid"
+                    style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); margin-bottom: 20px;">
+                    <!-- Gráfico: Top Rentabilidad -->
+                    <div class="action-card" style="cursor: default;">
+                        <h3 style="margin-top:0;">Top Márgenes (Mejores Productos)</h3>
+                        <div style="width:100%; height:250px;">
+                            <canvas id="chart-margins"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico: Top Rotación -->
+                    <div class="action-card" style="cursor: default;">
+                        <h3 style="margin-top:0;">Top Rotación (Más Vendidos)</h3>
+                        <div style="width:100%; height:250px;">
+                            <canvas id="chart-rotation"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid" style="grid-template-columns: 1fr;">
+                    <div class="action-card" style="cursor: default;">
+                        <h3 style="margin-top:0;">Evolución de Utilidad en el Tiempo</h3>
+                        <div style="width:100%; height:300px;">
+                            <canvas id="chart-utility"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- GUIA DETAIL MODAL -->
             <div id="guia-modal" class="menu-backdrop">
                 <div class="login-card"
@@ -268,6 +330,51 @@
                     <div style="text-align:right; margin-top:20px;">
                         <button class="btn-primary"
                             onclick="document.getElementById('guia-modal').classList.remove('open')">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COMPRA AUDIT MODAL -->
+            <div id="audit-modal" class="menu-backdrop">
+                <div class="login-card"
+                    style="max-width: 900px; width: 90%; margin: 50px auto; max-height: 90vh; display: flex; flex-direction: column;">
+                    <div
+                        style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
+                        <h2 style="margin:0;"><i class="fas fa-check-double" style="color:#f59e0b;"></i> Auditar Compra
+                        </h2>
+                        <button onclick="document.getElementById('audit-modal').classList.remove('open')"
+                            style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;">&times;</button>
+                    </div>
+
+                    <div id="audit-header"
+                        style="margin-bottom:20px; color:var(--text-secondary); font-size:13px; display:flex; gap:20px;">
+                        <!-- AI Warning / Metadata -->
+                    </div>
+
+                    <div style="flex:1; overflow-y:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cant.</th>
+                                    <th>Costo Sugerido (IA)</th>
+                                    <th>Costo Real (S/)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-details-body">
+                                <!-- JS details here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div
+                        style="text-align:right; margin-top:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+                        <button class="btn-primary"
+                            onclick="document.getElementById('audit-modal').classList.remove('open')"
+                            style="background:var(--bg-surface); margin-right:10px; width:auto; padding:10px 20px;">Cancelar</button>
+                        <button class="btn-primary" onclick="saveAuditCompra()"
+                            style="background:#22c55e; width:auto; padding:10px 20px;"><i class="fas fa-save"></i>
+                            Aprobar Compra</button>
                     </div>
                 </div>
             </div>
